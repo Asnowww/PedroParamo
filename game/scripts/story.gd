@@ -23,7 +23,7 @@ var note_btn: Button
 var note_panel: PanelContainer
 var note_list: VBoxContainer
 var cards_btn: Button
-var cards_panel: PanelContainer
+var album: Control
 var cards_grid: GridContainer
 var card_detail: PanelContainer = null
 var overlay_label: Label
@@ -109,7 +109,7 @@ func _build_layers() -> void:
 	toast = Label.new()
 	toast.add_theme_color_override("font_color", MARIGOLD)
 	toast.add_theme_font_size_override("font_size", 26)
-	toast.position = Vector2(60, 950)
+	toast.position = Vector2(48, 52)               # 左上角，与右上笔记按钮同高
 	toast.modulate.a = 0.0
 	add_child(toast)
 	# 笔记按钮与面板
@@ -148,33 +148,42 @@ func _build_layers() -> void:
 	cards_btn.add_theme_font_size_override("font_size", 24)
 	cards_btn.pressed.connect(_toggle_cards)
 	add_child(cards_btn)
-	cards_panel = PanelContainer.new()
-	cards_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
-	cards_panel.position = Vector2(1150, 180)
-	cards_panel.size = Vector2(730, 700)
-	cards_panel.visible = false
-	add_child(cards_panel)
-	var cv := VBoxContainer.new()
-	cards_panel.add_child(cv)
+	# 全屏祭坛卡册
+	album = Control.new()
+	album.set_anchors_preset(Control.PRESET_FULL_RECT)
+	album.visible = false
+	add_child(album)
+	var abg := TextureRect.new()
+	abg.texture = Art.texture("ui_cardalbum_01")
+	abg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	abg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	abg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	album.add_child(abg)
 	var ct := Label.new()
-	ct.text = "拾得的记忆碎片"
+	ct.text = "拾 得 的 记 忆"
 	ct.add_theme_color_override("font_color", INK)
-	ct.add_theme_font_size_override("font_size", 28)
-	cv.add_child(ct)
-	var ch := Label.new()
-	ch.text = "（点卡片查看记下的事）"
-	ch.add_theme_color_override("font_color", DIM)
-	ch.add_theme_font_size_override("font_size", 18)
-	cv.add_child(ch)
+	ct.add_theme_font_size_override("font_size", 34)
+	ct.position = Vector2(860, 190)
+	album.add_child(ct)
+	var back := Button.new()
+	back.text = "返 回"
+	back.position = Vector2(1730, 42)
+	back.size = Vector2(150, 60)
+	back.add_theme_font_size_override("font_size", 26)
+	back.pressed.connect(_toggle_cards)
+	album.add_child(back)
 	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(680, 560)
-	cv.add_child(scroll)
+	scroll.position = Vector2(500, 270)
+	scroll.size = Vector2(920, 620)
+	album.add_child(scroll)
+	var center := CenterContainer.new()
+	center.custom_minimum_size = Vector2(900, 0)
+	scroll.add_child(center)
 	cards_grid = GridContainer.new()
 	cards_grid.columns = 4
-	cards_grid.add_theme_constant_override("h_separation", 20)
-	cards_grid.add_theme_constant_override("v_separation", 16)
-	scroll.add_child(cards_grid)
+	cards_grid.add_theme_constant_override("h_separation", 36)
+	cards_grid.add_theme_constant_override("v_separation", 26)
+	center.add_child(cards_grid)
 	# 全屏文字（章节标题/结束）
 	overlay_label = Label.new()
 	overlay_label.add_theme_color_override("font_color", INK)
@@ -266,15 +275,18 @@ func _show_toast(t: String) -> void:
 
 func _toggle_notebook() -> void:
 	note_panel.visible = not note_panel.visible
-	cards_panel.visible = false
+	album.visible = false
 	if note_panel.visible:
 		_refresh_notebook()
 
 func _toggle_cards() -> void:
-	cards_panel.visible = not cards_panel.visible
+	album.visible = not album.visible
 	note_panel.visible = false
-	if cards_panel.visible:
+	if album.visible:
 		_refresh_cards()
+	elif card_detail != null:
+		card_detail.queue_free()
+		card_detail = null
 
 func _refresh_cards() -> void:
 	for c in cards_grid.get_children():
@@ -306,11 +318,22 @@ func _refresh_cards() -> void:
 func _show_card_detail(id: String) -> void:
 	if card_detail != null:
 		card_detail.queue_free()
+	# 毛玻璃：整屏背景模糊 + 半透明面板
+	var blur := ColorRect.new()
+	blur.set_anchors_preset(Control.PRESET_FULL_RECT)
+	blur.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bmat := ShaderMaterial.new()
+	bmat.shader = load("res://shaders/frosted.gdshader")
+	blur.material = bmat
+	add_child(blur)
 	card_detail = PanelContainer.new()
-	card_detail.add_theme_stylebox_override("panel", UiTheme.panel_box())
+	card_detail.add_theme_stylebox_override("panel", UiTheme.glass_box())
 	card_detail.position = Vector2(460, 190)
 	card_detail.size = Vector2(1000, 700)
 	add_child(card_detail)
+	card_detail.tree_exiting.connect(func():
+		if is_instance_valid(blur):
+			blur.queue_free())
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 28)
 	card_detail.add_child(hb)
@@ -368,6 +391,8 @@ func _gui_input(event: InputEvent) -> void:
 			drag_card = null
 		elif event is InputEventMouseMotion and drag_card != null:
 			drag_card.global_position = get_global_mouse_position() - drag_offset
+		return
+	if album.visible or note_panel.visible:        # 卡册/笔记打开时不推进剧情
 		return
 	if event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT and waiting_click:
