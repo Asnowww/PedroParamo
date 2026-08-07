@@ -5,23 +5,24 @@
 
 ## 当前状态
 
-- 美术资产 206 张全部完成（art/backgrounds/），对照表与 manifest.csv 已就绪
-- 下一步：M0
+- M0+M1 已完成（2026-08-07，commit 2b20bd3）：git 仓库、后期管线跑完 206 张（art/final/）、Godot 4.7.1 工程、垂直切片可运行
+- Dialogic 2 安装推迟到 M2：切片用自研轻量对话框先行验证手感，避免插件配置拖慢验收；M2 接入 Dialogic 时迁移
+- **下一步：等待用户试玩验收 M1**（运行方式见 game/README 段落或直接叫 Claude 启动），验收通过后进 M2
 
 ## 里程碑
 
 ### M0 工程奠基（含原路线图"后期统一脚本"）
-- [ ] git init（本目录），.gitattributes 处理 png，首次提交全部资产与文档
-- [ ] 后期统一脚本 `tools/postprocess.py`：三线各自 LUT/duotone + amate 纸纹叠加 + 统一颗粒 + 轻暗角；跑全部 206 张 → `art/final/`（原图保留）
-- [ ] Godot 4.x 工程骨架：`game/` 目录、项目设置（1920×1080、viewport 缩放）、资产导入
-- [ ] Dialogic 2 插件安装与冒烟测试
+- [x] git init（本目录），.gitattributes 处理 png，首次提交全部资产与文档
+- [x] 后期统一脚本 `tools/postprocess.py`：三线各自 LUT/duotone + amate 纸纹叠加 + 统一颗粒 + 轻暗角；跑全部 206 张 → `art/final/`（原图保留）
+- [x] Godot 4.x 工程骨架：`game/` 目录、项目设置（1920×1080、viewport 缩放）、资产导入
+- [~] Dialogic 2 插件安装（推迟至 M2，见当前状态）
 - 验收：脚本前后对比图 3 组；Godot 空工程可启动
 
 ### M1 垂直切片（原路线图项）
-- [ ] 场景：爱杜薇海斯的家（F04），present_eduviges_sala 背景 + Ken Burns 微运镜
-- [ ] 一段 Dialogic 对话（F04 改编，约 30 行）
-- [ ] 3 张卡的迷你拼图板（card_11/13/16 拖拽排序、排对点亮）
-- [ ] 低语值侵蚀特效第一版（版画黑线从边缘爬入，shader）
+- [x] 场景：爱杜薇海斯的家（F04），present_eduviges_sala 背景 + Ken Burns 微运镜
+- [x] 一段对话（自研对话框，F04 改编 9 行）（F04 改编，约 30 行）
+- [x] 3 张卡的迷你拼图板（card_11/13/16 拖拽排序、排对点亮）
+- [x] 低语值侵蚀特效第一版（版画黑线从边缘爬入，shader）
 - 验收：**你试玩**。手感不过关则迭代，过关才进 M2
 
 ### M2 核心系统层
