@@ -23,10 +23,10 @@ static func panel_box() -> StyleBoxFlat:
 	return sb
 
 static func glass_box() -> StyleBoxFlat:
-	## 毛玻璃面板：半透明浅色蒙层 + 烛金细边（底下由 frosted 着色器提供模糊）
+	## 卡片详情面板：不透明深墨底 + 烛金细边
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.16, 0.14, 0.13, 0.42)
-	sb.border_color = Color(0.82, 0.68, 0.40, 0.75)
+	sb.bg_color = Color(0.09, 0.075, 0.065, 1.0)
+	sb.border_color = Color(0.82, 0.68, 0.40)
 	sb.set_border_width_all(2)
 	sb.set_content_margin_all(28)
 	sb.set_corner_radius_all(8)

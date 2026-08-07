@@ -318,13 +318,11 @@ func _refresh_cards() -> void:
 func _show_card_detail(id: String) -> void:
 	if card_detail != null:
 		card_detail.queue_free()
-	# 毛玻璃：整屏背景模糊 + 半透明面板
+	# 背景压暗（不模糊），把注意力收到详情框上
 	var blur := ColorRect.new()
+	blur.color = Color(0.02, 0.02, 0.03, 0.72)
 	blur.set_anchors_preset(Control.PRESET_FULL_RECT)
 	blur.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bmat := ShaderMaterial.new()
-	bmat.shader = load("res://shaders/frosted.gdshader")
-	blur.material = bmat
 	add_child(blur)
 	card_detail = PanelContainer.new()
 	card_detail.add_theme_stylebox_override("panel", UiTheme.glass_box())
