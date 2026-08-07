@@ -47,6 +47,14 @@ func _ready() -> void:
 		dlg_panel.visible = false
 		_set_whisper(0.55)
 		_build_puzzle()
+	if "--clicktest" in args:
+		await get_tree().create_timer(1.0).timeout
+		for pressed in [true, false]:
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = pressed
+			ev.position = Vector2(960, 540)
+			Input.parse_input_event(ev)
 	for a in args:
 		if a.begins_with("--shot="):
 			await get_tree().create_timer(2.2).timeout
@@ -60,6 +68,7 @@ func _build_bg() -> void:
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 	# Ken Burns：缓慢放大 + 平移，40 秒一个来回
 	bg.pivot_offset = Vector2(960, 540)
@@ -91,6 +100,7 @@ func _build_dialogue() -> void:
 	sb.set_border_width_all(2)
 	sb.set_content_margin_all(24)
 	dlg_panel.add_theme_stylebox_override("panel", sb)
+	dlg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dlg_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	dlg_panel.offset_left = 240
 	dlg_panel.offset_right = -240
@@ -108,6 +118,7 @@ func _build_dialogue() -> void:
 	text_label.fit_content = true
 	text_label.add_theme_color_override("default_color", INK)
 	text_label.add_theme_font_size_override("normal_font_size", 34)
+	text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vb.add_child(text_label)
 	var hint := Label.new()
@@ -123,17 +134,24 @@ func _show_line() -> void:
 	name_label.visible = line[0] != ""
 	text_label.text = line[1]
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if state == "dialogue":
-			d_index += 1
-			_set_whisper(whisper + 0.06)          # 每推进一句，低语上升
-			if d_index < dialogue.size():
-				_show_line()
-			else:
-				state = "puzzle"
-				dlg_panel.visible = false
-				_build_puzzle()
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if state == "dialogue":
+				accept_event()
+				d_index += 1
+				_set_whisper(whisper + 0.06)      # 每推进一句，低语上升
+				if d_index < dialogue.size():
+					_show_line()
+				else:
+					state = "puzzle"
+					dlg_panel.visible = false
+					_build_puzzle()
+		elif drag_card != null:                    # 在卡面外松手也能落卡
+			_drop_card(drag_card)
+			drag_card = null
+	elif event is InputEventMouseMotion and drag_card != null:
+		drag_card.global_position = get_global_mouse_position() - drag_offset
 
 # ---------- 迷你拼图板 ----------
 
