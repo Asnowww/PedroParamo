@@ -22,6 +22,10 @@ var toast: Label
 var note_btn: Button
 var note_panel: PanelContainer
 var note_list: VBoxContainer
+var cards_btn: Button
+var cards_panel: PanelContainer
+var cards_grid: GridContainer
+var card_detail: PanelContainer = null
 var overlay_label: Label
 
 var slots: Array = []
@@ -40,6 +44,12 @@ func _ready() -> void:
 		if a.begins_with("--fragment="):
 			GameState.current_fragment = a.substr(11)
 	_load_fragment(GameState.current_fragment)
+	if "--givecards" in args:                      # 自测：解锁全部已录卡并打开卡册
+		for id in CardDb.cards.keys():
+			GameState.unlock_card(id)
+		_toggle_cards()
+	if "--carddetail" in args:
+		_show_card_detail("card_16_rebozo")
 	for a in args:
 		if a.begins_with("--shot="):
 			await get_tree().create_timer(2.0).timeout
@@ -130,6 +140,41 @@ func _build_layers() -> void:
 	nv.add_child(hintl)
 	note_list = VBoxContainer.new()
 	nv.add_child(note_list)
+	# 碎片卡册按钮与面板
+	cards_btn = Button.new()
+	cards_btn.text = "碎 片"
+	cards_btn.position = Vector2(1740, 108)
+	cards_btn.size = Vector2(140, 56)
+	cards_btn.add_theme_font_size_override("font_size", 24)
+	cards_btn.pressed.connect(_toggle_cards)
+	add_child(cards_btn)
+	cards_panel = PanelContainer.new()
+	cards_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
+	cards_panel.position = Vector2(1150, 180)
+	cards_panel.size = Vector2(730, 700)
+	cards_panel.visible = false
+	add_child(cards_panel)
+	var cv := VBoxContainer.new()
+	cards_panel.add_child(cv)
+	var ct := Label.new()
+	ct.text = "拾得的记忆碎片"
+	ct.add_theme_color_override("font_color", INK)
+	ct.add_theme_font_size_override("font_size", 28)
+	cv.add_child(ct)
+	var ch := Label.new()
+	ch.text = "（点卡片查看记下的事）"
+	ch.add_theme_color_override("font_color", DIM)
+	ch.add_theme_font_size_override("font_size", 18)
+	cv.add_child(ch)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(680, 560)
+	cv.add_child(scroll)
+	cards_grid = GridContainer.new()
+	cards_grid.columns = 4
+	cards_grid.add_theme_constant_override("h_separation", 20)
+	cards_grid.add_theme_constant_override("v_separation", 16)
+	scroll.add_child(cards_grid)
 	# 全屏文字（章节标题/结束）
 	overlay_label = Label.new()
 	overlay_label.add_theme_color_override("font_color", INK)
@@ -168,7 +213,7 @@ func _advance() -> void:
 			GameState.meet(op["meet"])
 		elif op.has("card"):
 			GameState.unlock_card(op["card"])
-			_show_toast("✚ 拾得记忆碎片")
+			_show_toast("✚ 拾得记忆碎片 · " + CardDb.title_of(op["card"]))
 		elif op.has("title"):
 			dlg_panel.visible = false
 			overlay_label.text = op["title"]
@@ -221,8 +266,83 @@ func _show_toast(t: String) -> void:
 
 func _toggle_notebook() -> void:
 	note_panel.visible = not note_panel.visible
+	cards_panel.visible = false
 	if note_panel.visible:
 		_refresh_notebook()
+
+func _toggle_cards() -> void:
+	cards_panel.visible = not cards_panel.visible
+	note_panel.visible = false
+	if cards_panel.visible:
+		_refresh_cards()
+
+func _refresh_cards() -> void:
+	for c in cards_grid.get_children():
+		c.queue_free()
+	if GameState.unlocked_cards.is_empty():
+		var empty := Label.new()
+		empty.text = "还没有拾得任何碎片。"
+		empty.add_theme_color_override("font_color", DIM)
+		empty.add_theme_font_size_override("font_size", 24)
+		cards_grid.add_child(empty)
+		return
+	for id in GameState.unlocked_cards:
+		var box := VBoxContainer.new()
+		var thumb := TextureButton.new()
+		thumb.texture_normal = Art.texture(id)
+		thumb.ignore_texture_size = true
+		thumb.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT
+		thumb.custom_minimum_size = Vector2(150, 230)
+		thumb.pressed.connect(_show_card_detail.bind(id))
+		box.add_child(thumb)
+		var t := Label.new()
+		t.text = CardDb.title_of(id)
+		t.add_theme_color_override("font_color", INK)
+		t.add_theme_font_size_override("font_size", 22)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(t)
+		cards_grid.add_child(box)
+
+func _show_card_detail(id: String) -> void:
+	if card_detail != null:
+		card_detail.queue_free()
+	card_detail = PanelContainer.new()
+	card_detail.add_theme_stylebox_override("panel", UiTheme.panel_box())
+	card_detail.position = Vector2(460, 190)
+	card_detail.size = Vector2(1000, 700)
+	add_child(card_detail)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 28)
+	card_detail.add_child(hb)
+	var big := TextureRect.new()
+	big.texture = Art.texture(id)
+	big.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	big.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+	big.custom_minimum_size = Vector2(400, 620)
+	hb.add_child(big)
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(right)
+	var tt := Label.new()
+	tt.text = CardDb.title_of(id)
+	tt.add_theme_color_override("font_color", MARIGOLD)
+	tt.add_theme_font_size_override("font_size", 36)
+	right.add_child(tt)
+	var lore := RichTextLabel.new()
+	lore.text = CardDb.lore_of(id)
+	lore.fit_content = true
+	lore.add_theme_color_override("default_color", INK)
+	lore.add_theme_font_size_override("normal_font_size", 28)
+	lore.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(lore)
+	var close := Button.new()
+	close.text = "合 上"
+	close.add_theme_font_size_override("font_size", 24)
+	close.custom_minimum_size = Vector2(140, 52)
+	close.pressed.connect(func():
+		card_detail.queue_free()
+		card_detail = null)
+	right.add_child(close)
 
 const MARKS := ["？ 说不清", "☀ 活人", "✝ 死人"]
 

@@ -12,6 +12,7 @@ config/features=PackedStringArray("4.7")
 GameState="*res://scripts/game_state.gd"
 Manifest="*res://scripts/manifest.gd"
 Art="*res://scripts/art.gd"
+CardDb="*res://scripts/card_db.gd"
 
 [display]
 
