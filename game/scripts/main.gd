@@ -54,6 +54,14 @@ func _ready() -> void:
 		dlg_panel.visible = false
 		_set_whisper(0.55)
 		_build_puzzle()
+	for a in args:
+		if a.begins_with("--place="):              # 自测：把第N槽的正确卡直接落位
+			var i := int(a.substr(8))
+			for card in cards:
+				if String(card.get_meta("id")) == correct_order[i]:
+					card.set_meta("slot", i)
+					card.global_position = slots[i].global_position + (slots[i].size - card.size) / 2.0
+					_update_candles()
 	if "--hovertest" in args:
 		await get_tree().create_timer(0.8).timeout
 		get_viewport().warp_mouse(Vector2(640, 875))   # 第一张卡中心
@@ -239,6 +247,8 @@ func _on_card_input(event: InputEvent, card: TextureRect) -> void:
 			drag_card = card
 			drag_offset = card.get_global_mouse_position() - card.global_position
 			card.move_to_front()
+			card.set_meta("slot", -1)              # 拿起即离槽，蜡烛随之熄灭
+			_update_candles()
 		else:
 			if drag_card == card:
 				_drop_card(card)
@@ -249,28 +259,40 @@ func _on_card_input(event: InputEvent, card: TextureRect) -> void:
 func _drop_card(card: TextureRect) -> void:
 	for slot in slots:
 		if slot.get_global_rect().has_point(card.get_global_mouse_position()):
+			var idx := slots.find(slot)
+			for other in cards:                     # 槽位已被占则不吸附
+				if other != card and other.has_meta("slot") and int(other.get_meta("slot")) == idx:
+					card.set_meta("slot", -1)
+					card.position += Vector2(0, 48)
+					return
 			card.global_position = slot.global_position + (slot.size - card.size) / 2.0
-			card.set_meta("slot", slots.find(slot))
-			_check_order()
+			card.set_meta("slot", idx)
+			if String(card.get_meta("id")) != correct_order[idx]:
+				_set_whisper(whisper + 0.04)        # 摆错也有代价
+			_update_candles()
 			return
 	card.set_meta("slot", -1)
+	_update_candles()
 
-func _check_order() -> void:
-	var placed := {}
-	for card in cards:
-		if card.has_meta("slot") and int(card.get_meta("slot")) >= 0:
-			placed[int(card.get_meta("slot"))] = String(card.get_meta("id"))
-	if placed.size() < 3:
+func _update_candles() -> void:
+	## 逐槽点亮：某槽放着正确的卡，对应蜡烛即燃；否则熄灭
+	if state == "done":
 		return
-	var ok := true
+	var lit := load("res://assets/candle_lit.png")
+	var unlit := load("res://assets/candle_unlit.png")
+	var correct := 0
 	for i in range(3):
-		if placed.get(i, "") != correct_order[i]:
-			ok = false
-	if ok:
+		var good := false
+		for card in cards:
+			if card.has_meta("slot") and int(card.get_meta("slot")) == i \
+					and String(card.get_meta("id")) == correct_order[i]:
+				good = true
+				break
+		candles[i].texture = lit if good else unlit
+		if good:
+			correct += 1
+	if correct == 3:
 		state = "done"
-		var lit := load("res://assets/candle_lit.png")
-		for cn in candles:                          # 蜡烛点亮
-			cn.texture = lit
 		_set_whisper(whisper + 0.25)                # 记忆归位，亡魂靠近
 		end_label = Label.new()
 		end_label.text = "记忆点亮了。低语更近了。\n—— 垂直切片到此结束 ——"
@@ -279,5 +301,3 @@ func _check_order() -> void:
 		end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		end_label.set_anchors_preset(Control.PRESET_CENTER)
 		puzzle_root.add_child(end_label)
-	else:
-		_set_whisper(whisper + 0.04)                # 摆错也有代价
