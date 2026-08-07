@@ -4,8 +4,14 @@ config_version=5
 [application]
 
 config/name="Pedro Paramo"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7")
+
+[autoload]
+
+GameState="*res://scripts/game_state.gd"
+Manifest="*res://scripts/manifest.gd"
+Art="*res://scripts/art.gd"
 
 [display]
 
