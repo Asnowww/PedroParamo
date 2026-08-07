@@ -9,6 +9,7 @@ const MARIGOLD := Color(0.91, 0.57, 0.18)      # 万寿菊橙（全游戏唯一�
 
 var whisper := 0.0                              # 低语值 0..1，只升不降
 var dialogue := [
+	["", "进村时是傍晚。空荡荡的街角，一个裹着披肩的妇人一闪而过——再看时，那里什么都没有。"],
 	["", "雨中的科马拉。有人给我开了门。"],
 	["爱杜薇海斯", "请进来吧。"],
 	["我", "（她好像一直在等我。屋里堆满了别人寄存的家具。）"],
@@ -204,10 +205,13 @@ func _build_puzzle() -> void:
 		slot.size = Vector2(280, 420)
 		puzzle_root.add_child(slot)
 		slots.append(slot)
-		var cn := ColorRect.new()                  # 槽位上方的"蜡烛"
-		cn.color = Color(0.25, 0.22, 0.18)
-		cn.position = Vector2(610 + i * 340, 210)
-		cn.size = Vector2(20, 34)
+		var cn := TextureRect.new()                # 槽位上方的蜡烛（熄灭态）
+		cn.texture = load("res://assets/candle_unlit.png")
+		cn.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		cn.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+		cn.size = Vector2(84, 126)
+		cn.position = Vector2(578 + i * 340, 126)
+		cn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		puzzle_root.add_child(cn)
 		candles.append(cn)
 	# 三张卡乱序放底部
@@ -245,7 +249,7 @@ func _on_card_input(event: InputEvent, card: TextureRect) -> void:
 func _drop_card(card: TextureRect) -> void:
 	for slot in slots:
 		if slot.get_global_rect().has_point(card.get_global_mouse_position()):
-			card.global_position = slot.global_position + Vector2(10, 10)
+			card.global_position = slot.global_position + (slot.size - card.size) / 2.0
 			card.set_meta("slot", slots.find(slot))
 			_check_order()
 			return
@@ -264,8 +268,9 @@ func _check_order() -> void:
 			ok = false
 	if ok:
 		state = "done"
+		var lit := load("res://assets/candle_lit.png")
 		for cn in candles:                          # 蜡烛点亮
-			cn.color = MARIGOLD
+			cn.texture = lit
 		_set_whisper(whisper + 0.25)                # 记忆归位，亡魂靠近
 		end_label = Label.new()
 		end_label.text = "记忆点亮了。低语更近了。\n—— 垂直切片到此结束 ——"
