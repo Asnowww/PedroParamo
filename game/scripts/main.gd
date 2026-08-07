@@ -31,12 +31,18 @@ var puzzle_root: Control
 var slots: Array = []                            # 3 个槽位 Control
 var cards: Array = []                            # 3 张卡 TextureRect
 var correct_order := ["card_16_rebozo", "card_11_puerta", "card_13_muebles"]
+const CARD_LORE := {
+	"card_16_rebozo": "披肩\n\n进村那个傍晚，空街的墙角有个裹披肩的妇人一闪而过，像是从来不曾在那里。\n（碎片：初入科马拉）",
+	"card_11_puerta": "虚掩的门\n\n深夜里她给我开了门，好像早就知道我要来——是我死去七天的母亲通知她的。\n（碎片：爱杜薇海斯开门）",
+	"card_13_muebles": "蒙布的家具\n\n满屋子都是别人寄存的家具，主人们说好回来取，再也没有回来。\n（碎片：堆满回忆的长屋）",
+}
 var drag_card: TextureRect = null
 var drag_offset := Vector2.ZERO
 var candles: Array = []
 var end_label: Label
 
 func _ready() -> void:
+	_build_tooltip_theme()
 	_build_bg()
 	_build_erosion()
 	_build_dialogue()
@@ -47,6 +53,9 @@ func _ready() -> void:
 		dlg_panel.visible = false
 		_set_whisper(0.55)
 		_build_puzzle()
+	if "--hovertest" in args:
+		await get_tree().create_timer(0.8).timeout
+		get_viewport().warp_mouse(Vector2(640, 875))   # 第一张卡中心
 	if "--clicktest" in args:
 		await get_tree().create_timer(1.0).timeout
 		for pressed in [true, false]:
@@ -61,6 +70,20 @@ func _ready() -> void:
 			var img := get_viewport().get_texture().get_image()
 			img.save_png(a.substr(7))
 			get_tree().quit()
+
+func _build_tooltip_theme() -> void:
+	# 全局悬停提示样式：老纸底、烛金边框，与卡牌同语言
+	var th := Theme.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.085, 0.07, 0.96)
+	sb.border_color = Color(0.78, 0.62, 0.32)
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(16)
+	sb.set_corner_radius_all(4)
+	th.set_stylebox("panel", "TooltipPanel", sb)
+	th.set_color("font_color", "TooltipLabel", Color(0.93, 0.89, 0.80))
+	th.set_font_size("font_size", "TooltipLabel", 26)
+	theme = th
 
 func _build_bg() -> void:
 	bg = TextureRect.new()
@@ -200,6 +223,7 @@ func _build_puzzle() -> void:
 		card.size = Vector2(240, 370)
 		card.position = Vector2(520 + i * 330, 690)
 		card.set_meta("id", shuffled[i])
+		card.tooltip_text = CARD_LORE.get(shuffled[i], "")
 		card.mouse_filter = Control.MOUSE_FILTER_STOP
 		card.gui_input.connect(_on_card_input.bind(card))
 		puzzle_root.add_child(card)
