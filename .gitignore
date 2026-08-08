@@ -2,3 +2,5 @@ art/final/
 *.import
 .godot/
 text/
+tools/m3_src/
+*.translation
