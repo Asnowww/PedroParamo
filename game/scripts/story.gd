@@ -50,6 +50,10 @@ func _ready() -> void:
 		_toggle_cards()
 	if "--carddetail" in args:
 		_show_card_detail("card_16_rebozo")
+	if "--shownotes" in args:
+		GameState.meet("阿文迪奥")
+		GameState.meet("爱杜薇海斯")
+		_toggle_notebook()
 	for a in args:
 		if a.begins_with("--shot="):
 			await get_tree().create_timer(2.0).timeout
@@ -122,7 +126,7 @@ func _build_layers() -> void:
 	add_child(note_btn)
 	note_panel = PanelContainer.new()
 	note_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
-	note_panel.position = Vector2(1420, 110)
+	note_panel.position = Vector2(1270, 40)        # 右缘贴笔记按钮左缘(1740)，顶与按钮平齐
 	note_panel.size = Vector2(460, 500)
 	note_panel.visible = false
 	add_child(note_panel)
@@ -239,7 +243,7 @@ func _advance() -> void:
 			name_label.text = op.get("who", "")
 			name_label.visible = name_label.text != ""
 			text_label.text = op["text"]
-			_set_whisper(GameState.whisper + 0.008)   # 每句微升
+			_set_whisper(GameState.whisper + 0.002)   # 每句微升（全流程配速）
 			waiting_click = true
 			return
 		elif op.has("next"):
@@ -450,7 +454,8 @@ func _build_puzzle(cfg: Dictionary) -> void:
 		card.size = Vector2(240, 370)
 		card.position = Vector2(x0 + 20 + i * 340, 692)
 		card.set_meta("id", shuffled[i])
-		card.tooltip_text = lore.get(shuffled[i], "")
+		card.tooltip_text = lore.get(shuffled[i],
+			CardDb.title_of(shuffled[i]) + "\n\n" + CardDb.lore_of(shuffled[i]))
 		card.gui_input.connect(_on_card_input.bind(card))
 		puzzle_root.add_child(card)
 		cards.append(card)
