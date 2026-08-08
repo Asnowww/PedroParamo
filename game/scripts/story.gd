@@ -63,7 +63,7 @@ func _ready() -> void:
 	if "--carddetail" in args:
 		_show_card_detail("card_16_rebozo")
 	if "--shownotes" in args:                        # 自测：按剧本顺序灌入全部角色
-		for pid in ["多罗莱斯（我母亲）", "阿文迪奥", "爱杜薇海斯", "苏萨娜·圣胡安", "佩德罗·巴拉莫",
+		for pid in ["多罗莱斯", "阿文迪奥", "爱杜薇海斯", "苏萨娜·圣胡安", "佩德罗·巴拉莫",
 				"佩德罗的祖母", "米盖尔·巴拉莫", "卢卡斯·巴拉莫", "雷德里亚神父", "安娜",
 				"玛丽娅·地亚达", "达米亚娜", "多尼斯", "多尼斯的姐姐", "多罗脱阿",
 				"富尔戈尔·塞达诺", "托里维奥·阿尔德莱德", "康脱拉的主教", "巴托洛梅·圣胡安",
@@ -166,7 +166,7 @@ func _build_layers() -> void:
 	note_panel = PanelContainer.new()
 	note_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
 	note_panel.position = Vector2(1230, 40)        # 右缘贴笔记按钮左缘(1740)，顶与按钮平齐
-	note_panel.size = Vector2(500, 860)
+	note_panel.size = Vector2(500, 640)
 	note_panel.visible = false
 	add_child(note_panel)
 	var nv := VBoxContainer.new()
@@ -186,7 +186,7 @@ func _build_layers() -> void:
 	hintl.add_theme_font_size_override("font_size", 18)
 	nv.add_child(hintl)
 	var nscroll := ScrollContainer.new()
-	nscroll.custom_minimum_size = Vector2(452, 740)
+	nscroll.custom_minimum_size = Vector2(452, NOTE_ROW_H * NOTE_VISIBLE)
 	nscroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	nv.add_child(nscroll)
 	note_list = VBoxContainer.new()
@@ -424,7 +424,9 @@ func _show_card_detail(id: String) -> void:
 		card_detail = null)
 	right.add_child(close)
 
-const MARKS := ["？ 说不清", "○ 活着", "● 死了"]
+const MARKS := ["说不清", "活着", "死了"]
+const NOTE_ROW_H := 48        # 单行高
+const NOTE_VISIBLE := 10      # 同屏最多 10 人，其余滚动
 
 func _refresh_notebook() -> void:
 	for c in note_list.get_children():
@@ -438,6 +440,7 @@ func _refresh_notebook() -> void:
 		var b := Button.new()
 		b.text = "%s　—— %s" % [person, MARKS[int(GameState.notebook[person])]]
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.custom_minimum_size = Vector2(0, NOTE_ROW_H)
 		b.add_theme_font_size_override("font_size", 26)
 		b.pressed.connect(func():
 			GameState.cycle_mark(person)
@@ -569,7 +572,7 @@ func _roll_credits() -> void:
 	_crossfade("ui_creditos_01")
 	await get_tree().create_timer(1.2).timeout
 	var cr := Label.new()
-	cr.text = "佩德罗·巴拉莫\n\n原著 · 胡安·鲁尔福（屠孟超 译）\n改编与制作 · 你与 Claude\n美术生成 · CodeX Image\n引擎 · Godot 4\n\n谨以此 demo 致敬科马拉的亡魂\n\n—— 点击返回标题 ——"
+	cr.text = "佩德罗·巴拉莫\n\n原著 · 胡安·鲁尔福（屠孟超 译）\n改编与制作 · Asnowww\n引擎 · Godot 4\n\n谨以此 demo 致敬科马拉的亡魂\n\n—— 点击返回标题 ——"
 	cr.add_theme_color_override("font_color", INK)
 	cr.add_theme_font_size_override("font_size", 32)
 	cr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

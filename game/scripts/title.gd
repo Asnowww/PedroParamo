@@ -82,16 +82,34 @@ func _build_chapter_panel() -> void:
 	h.add_theme_font_size_override("font_size", 19)
 	vb.add_child(h)
 	for ch in CHAPTERS:
+		# 两列：章节名定宽 + 描述列，保证所有描述左边界严格对齐
 		var row := Button.new()
 		row.custom_minimum_size = Vector2(1000, 68)
-		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		row.add_theme_font_size_override("font_size", 26)
-		row.text = "  %s      %s" % [ch[0], ch[2]]
-		row.add_theme_color_override("font_color", INK)
 		row.pressed.connect(func():
 			GameState.fast_forward_to(ch[1])
 			get_tree().change_scene_to_file("res://scenes/story.tscn"))
 		vb.add_child(row)
+		var hb := HBoxContainer.new()
+		hb.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hb.offset_left = 24
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_theme_constant_override("separation", 0)
+		row.add_child(hb)
+		var name_lbl := Label.new()
+		name_lbl.text = ch[0]
+		name_lbl.custom_minimum_size = Vector2(300, 0)   # 定宽列
+		name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_lbl.add_theme_color_override("font_color", INK)
+		name_lbl.add_theme_font_size_override("font_size", 26)
+		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(name_lbl)
+		var desc_lbl := Label.new()
+		desc_lbl.text = ch[2]
+		desc_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		desc_lbl.add_theme_color_override("font_color", DIM)
+		desc_lbl.add_theme_font_size_override("font_size", 24)
+		desc_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(desc_lbl)
 	var back := Button.new()
 	back.text = "返 回"
 	back.custom_minimum_size = Vector2(180, 54)
