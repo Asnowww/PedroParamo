@@ -270,6 +270,9 @@ func _advance() -> void:
 		elif op.has("death"):
 			_play_death()
 			return
+		elif op.has("ending"):
+			_play_ending()
+			return
 		elif op.has("listen"):
 			dlg_panel.visible = false
 			_build_listen(op["listen"])
@@ -437,10 +440,21 @@ func _gui_input(event: InputEvent) -> void:
 			_show_listen_line()
 		return
 	if event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT and waiting_click:
-		accept_event()
-		waiting_click = false
-		_advance()
+			and event.button_index == MOUSE_BUTTON_LEFT:
+		if state_credits:
+			accept_event()
+			get_tree().change_scene_to_file("res://scenes/title.tscn")
+			return
+		if waiting_click:
+			accept_event()
+			waiting_click = false
+			if _in_ending():
+				_show_ending_line()
+			else:
+				_advance()
+
+func _in_ending() -> bool:
+	return op_index < ops.size() and ops[op_index].has("ending")
 
 # ---------- 中点死亡演出 ----------
 
@@ -475,6 +489,76 @@ func _play_death() -> void:
 	note_btn.visible = true
 	cards_btn.visible = true
 	_advance()
+
+# ---------- 理解度结局（M6） ----------
+
+const ENDING_DEEP := [
+	["", "科马拉安静下来了。"],
+	["", "现在你全都听见了：一封没有寄到的信，一场替来的婚，一匹找主人的马，一口井底的头颅骨，一场错认成节日的葬礼。"],
+	["", "佩德罗·巴拉莫不是一个人——他是这片土地干死的原因。他把一切据为己有，最后连科马拉的死，也是他的私产。"],
+	["", "而你，胡安·普雷西亚多，你要向他讨回的东西，其实在下山之前就死了。带你下山的，是他没有认下的儿子；埋你的，是替他拉过皮条的女人；隔壁躺着的，是他等了三十年的疯子。"],
+	["", "全村人都在替他还债。这里没有冤魂——只有债。"],
+	["多罗脱阿", "睡吧，胡安·普雷西亚多。你比谁都听得完整。往后地上有人走过，我们讲给他们听。"]
+]
+const ENDING_MID := [
+	["", "科马拉安静下来了。"],
+	["", "你听见了大半个村庄的声音：婚礼、马蹄、钟、狂欢的旗。它们在你的祭坛上排成了队，可是还有几支蜡烛没有点亮。"],
+	["", "佩德罗·巴拉莫死了，像一堆石头一样。可他为什么放任全村饿死，你只听到了一半。"],
+	["多罗脱阿", "睡吧，胡安·普雷西亚多。地底下有的是时间，那些没听完的，慢慢会渗下来的。"]
+]
+const ENDING_SHALLOW := [
+	["", "科马拉安静下来了。"],
+	["", "你听见一个老人死在皮椅上，像一堆石头。你听见许多声音，可它们没有连成一条路。"],
+	["", "谁杀了谁，谁欠了谁，谁在等谁——这些声音还压在墙洞里、石块底下，等着你把它们摆上祭坛。"],
+	["多罗脱阿", "睡吧，胡安·普雷西亚多。你听见的还太少。这个村庄的话，比它的死人还多。"]
+]
+
+var ending_lines: Array = []
+
+func _play_ending() -> void:
+	var n := GameState.unlocked_cards.size()
+	if n >= 40:
+		ending_lines = ENDING_DEEP.duplicate()
+	elif n >= 26:
+		ending_lines = ENDING_MID.duplicate()
+	else:
+		ending_lines = ENDING_SHALLOW.duplicate()
+	_crossfade("present_cementerio_01")
+	_show_ending_line()
+
+func _show_ending_line() -> void:
+	if ending_lines.is_empty():
+		_roll_credits()
+		return
+	var line: Array = ending_lines.pop_front()
+	dlg_panel.visible = true
+	name_label.text = line[0]
+	name_label.visible = line[0] != ""
+	text_label.text = line[1]
+	waiting_click = false
+	await get_tree().create_timer(0.1).timeout
+	waiting_click = true
+
+func _roll_credits() -> void:
+	dlg_panel.visible = false
+	note_btn.visible = false
+	cards_btn.visible = false
+	_crossfade("ui_creditos_01")
+	await get_tree().create_timer(1.2).timeout
+	var cr := Label.new()
+	cr.text = "佩德罗·巴拉莫\n\n原著 · 胡安·鲁尔福（屠孟超 译）\n改编与制作 · 你与 Claude\n美术生成 · CodeX Image\n引擎 · Godot 4\n\n谨以此 demo 致敬科马拉的亡魂\n\n—— 点击返回标题 ——"
+	cr.add_theme_color_override("font_color", INK)
+	cr.add_theme_font_size_override("font_size", 32)
+	cr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cr.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(cr)
+	ending_lines = []
+	waiting_click = false
+	state_credits = true
+
+var state_credits := false
 
 # ---------- 坟中倾听 ----------
 
