@@ -35,6 +35,18 @@ var puzzle_root: Control = null
 var drag_card: TextureRect = null
 var drag_offset := Vector2.ZERO
 
+# 坟中倾听
+var listen_root: Control = null
+var listen_cfg := {}
+var listen_sources: Array = []      # [{data, player(AudioStreamPlayer2D), done}]
+var listen_aim := 0.0               # -90..90 度
+var listen_lock := 0.0
+var listen_target := -1
+var listen_compass: TextureRect
+var listen_counter: Label
+var listen_lines: Array = []        # 捕捉到声音后的台词队列
+var listen_after_card := ""
+
 func _ready() -> void:
 	theme = UiTheme.build()
 	_build_layers()
@@ -53,6 +65,17 @@ func _ready() -> void:
 		GameState.meet("阿文迪奥")
 		GameState.meet("爱杜薇海斯")
 		_toggle_notebook()
+	for a in args:
+		if a.begins_with("--clicks="):               # 自测：先连点 N 下
+			await get_tree().create_timer(1.0).timeout
+			for k in range(int(a.substr(9))):
+				for pressed in [true, false]:
+					var ev := InputEventMouseButton.new()
+					ev.button_index = MOUSE_BUTTON_LEFT
+					ev.pressed = pressed
+					ev.position = Vector2(960, 540)
+					Input.parse_input_event(ev)
+				await get_tree().create_timer(0.25).timeout
 	for a in args:
 		if a.begins_with("--shot="):
 			await get_tree().create_timer(2.0).timeout
@@ -230,6 +253,13 @@ func _advance() -> void:
 			dlg_panel.visible = false
 			_build_puzzle(op["puzzle"])
 			return
+		elif op.has("death"):
+			_play_death()
+			return
+		elif op.has("listen"):
+			dlg_panel.visible = false
+			_build_listen(op["listen"])
+			return
 		elif op.has("text"):
 			overlay_label.visible = false
 			dlg_panel.visible = true
@@ -386,11 +416,179 @@ func _gui_input(event: InputEvent) -> void:
 		return
 	if album.visible or note_panel.visible:        # 卡册/笔记打开时不推进剧情
 		return
+	if listen_root != null:                        # 倾听中：点击只推进捕捉到的台词
+		if event is InputEventMouseButton and event.pressed \
+				and event.button_index == MOUSE_BUTTON_LEFT and dlg_panel.visible:
+			accept_event()
+			_show_listen_line()
+		return
 	if event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT and waiting_click:
 		accept_event()
 		waiting_click = false
 		_advance()
+
+# ---------- 中点死亡演出 ----------
+
+func _play_death() -> void:
+	dlg_panel.visible = false
+	note_btn.visible = false
+	cards_btn.visible = false
+	var hb := AudioStreamPlayer.new()
+	hb.stream = load("res://assets/audio/latido.wav")
+	add_child(hb)
+	hb.play()
+	var er := ColorRect.new()
+	er.set_anchors_preset(Control.PRESET_FULL_RECT)
+	er.mouse_filter = Control.MOUSE_FILTER_STOP
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/erosion.gdshader")
+	mat.set_shader_parameter("intensity", 0.0)
+	er.material = mat
+	add_child(er)
+	var tw := create_tween()
+	tw.tween_method(func(x): mat.set_shader_parameter("intensity", x), 0.0, 1.35, 3.4)\
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tw.finished
+	bg_a.texture = Art.texture("woodcut_muerte_juan_01")
+	bg_a.scale = Vector2.ONE
+	var tw2 := create_tween()
+	tw2.tween_method(func(x): mat.set_shader_parameter("intensity", x), 1.35, 0.0, 1.6)
+	await tw2.finished
+	er.queue_free()
+	hb.stop()
+	await get_tree().create_timer(2.0).timeout
+	note_btn.visible = true
+	cards_btn.visible = true
+	_advance()
+
+# ---------- 坟中倾听 ----------
+
+func _build_listen(cfg: Dictionary) -> void:
+	listen_cfg = cfg
+	listen_sources = []
+	listen_lock = 0.0
+	listen_target = -1
+	listen_root = Control.new()
+	listen_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(listen_root)
+	var veil := ColorRect.new()
+	veil.color = Color(0.01, 0.01, 0.02, 0.6)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	listen_root.add_child(veil)
+	var hint := Label.new()
+	hint.text = cfg.get("hint", "左右移动鼠标，把耳朵转向声音；对准了，就停住。")
+	hint.add_theme_color_override("font_color", DIM)
+	hint.add_theme_font_size_override("font_size", 26)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	hint.offset_top = 70
+	listen_root.add_child(hint)
+	listen_counter = Label.new()
+	listen_counter.add_theme_color_override("font_color", DIM)
+	listen_counter.add_theme_font_size_override("font_size", 24)
+	listen_counter.position = Vector2(920, 120)
+	listen_root.add_child(listen_counter)
+	listen_compass = TextureRect.new()
+	listen_compass.texture = Art.texture("ui_oido_01")
+	listen_compass.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	listen_compass.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+	listen_compass.size = Vector2(220, 220)
+	listen_compass.position = Vector2(960 - 110, 540)
+	listen_compass.pivot_offset = Vector2(110, 110)
+	listen_compass.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	listen_root.add_child(listen_compass)
+	for s in cfg.get("sources", []):
+		var p := AudioStreamPlayer2D.new()
+		p.stream = load("res://assets/audio/%s.wav" % s["sound"])
+		p.max_distance = 2400.0
+		p.attenuation = 1.6
+		listen_root.add_child(p)
+		p.play()
+		listen_sources.append({"data": s, "player": p, "done": false})
+	_update_listen_counter()
+	set_process(true)
+
+func _update_listen_counter() -> void:
+	var done := 0
+	for s in listen_sources:
+		if s["done"]:
+			done += 1
+	listen_counter.text = "听见 %d / %d" % [done, listen_sources.size()]
+
+func _process(delta: float) -> void:
+	if listen_root == null or not listen_lines.is_empty():
+		return
+	listen_aim = clampf((get_global_mouse_position().x - 960.0) / 960.0 * 90.0, -90.0, 90.0)
+	listen_compass.rotation_degrees = listen_aim
+	var best := -1
+	var best_diff := 999.0
+	for i in range(listen_sources.size()):
+		var s: Dictionary = listen_sources[i]
+		var diff: float = abs(float(s["data"]["angle"]) - listen_aim)
+		var p: AudioStreamPlayer2D = s["player"]
+		if s["done"]:
+			p.volume_db = -60.0
+			continue
+		# 声源随"转头"在听者(屏幕中心)周围移动：正对时近而居中，偏离时远而偏侧
+		var rel := deg_to_rad(float(s["data"]["angle"]) - listen_aim)
+		var dist := 260.0 + (1.0 - cos(rel)) * 900.0
+		p.position = Vector2(960, 540) + Vector2(sin(rel), -cos(rel) * 0.25) * dist
+		if diff < best_diff:
+			best_diff = diff
+			best = i
+	if best >= 0 and best_diff < 12.0:
+		listen_compass.modulate = Color(1.0, 0.75, 0.4)
+		if best == listen_target:
+			listen_lock += delta
+			if listen_lock >= 1.2:
+				_capture_source(best)
+		else:
+			listen_target = best
+			listen_lock = 0.0
+	else:
+		listen_compass.modulate = Color.WHITE
+		listen_target = -1
+		listen_lock = 0.0
+
+func _capture_source(i: int) -> void:
+	var s: Dictionary = listen_sources[i]
+	s["done"] = true
+	listen_lock = 0.0
+	listen_target = -1
+	_update_listen_counter()
+	listen_after_card = s["data"].get("card", "")
+	listen_lines = s["data"].get("lines", []).duplicate()
+	_show_listen_line()
+
+func _show_listen_line() -> void:
+	if listen_lines.is_empty():
+		dlg_panel.visible = false
+		if listen_after_card != "":
+			GameState.unlock_card(listen_after_card)
+			_show_toast("✚ 拾得记忆碎片 · " + CardDb.title_of(listen_after_card))
+			listen_after_card = ""
+		var all_done := true
+		for s in listen_sources:
+			if not s["done"]:
+				all_done = false
+		if all_done:
+			_end_listen()
+		return
+	var line: Array = listen_lines.pop_front()
+	dlg_panel.visible = true
+	name_label.text = line[0]
+	name_label.visible = line[0] != ""
+	text_label.text = line[1]
+
+func _end_listen() -> void:
+	for s in listen_sources:
+		(s["player"] as AudioStreamPlayer2D).stop()
+	listen_root.queue_free()
+	listen_root = null
+	set_process(false)
+	_advance()
 
 # ---------- 拼图板（通用 N 卡） ----------
 
