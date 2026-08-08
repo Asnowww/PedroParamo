@@ -50,6 +50,40 @@ func load_save() -> bool:
 	seen_fragments = data.get("seen_fragments", [])
 	return true
 
+## 章节跳转：从 F01 沿碎片链走到目标碎片，把沿途该拿的卡与该遇见的人补齐，
+## 这样中途开局的拼图板、卡册、笔记与结局分层都不会缺料。
+func fast_forward_to(target: String) -> void:
+	reset()
+	var cur := "F01"
+	var guard := 0
+	while cur != target and cur != "end" and guard < 200:
+		guard += 1
+		var path := "res://data/fragments/%s.json" % cur
+		if not FileAccess.file_exists(path):
+			break
+		var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+		var nxt := ""
+		for op in data.get("ops", []):
+			if op.has("card"):
+				unlock_card(op["card"])
+			elif op.has("meet"):
+				meet(op["meet"])
+			elif op.has("whisper"):
+				whisper = clampf(whisper + float(op["whisper"]), 0.0, 1.0)
+			elif op.has("listen"):
+				for s in op["listen"].get("sources", []):
+					if s.has("card"):
+						unlock_card(s["card"])
+			elif op.has("next"):
+				nxt = op["next"]
+		if not seen_fragments.has(cur):
+			seen_fragments.append(cur)
+		if nxt == "":
+			break
+		cur = nxt
+	current_fragment = target
+	save()
+
 func reset() -> void:
 	whisper = 0.0
 	current_fragment = "F01"

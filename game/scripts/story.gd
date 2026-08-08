@@ -21,6 +21,7 @@ var toast: Label
 var note_btn: Button
 var note_panel: PanelContainer
 var note_list: VBoxContainer
+var note_count: Label
 var cards_btn: Button
 var album: Control
 var cards_grid: GridContainer
@@ -61,9 +62,17 @@ func _ready() -> void:
 		_toggle_cards()
 	if "--carddetail" in args:
 		_show_card_detail("card_16_rebozo")
-	if "--shownotes" in args:
-		GameState.meet("阿文迪奥")
-		GameState.meet("爱杜薇海斯")
+	if "--shownotes" in args:                        # 自测：按剧本顺序灌入全部角色
+		for pid in ["多罗莱斯（我母亲）", "阿文迪奥", "爱杜薇海斯", "苏萨娜·圣胡安", "佩德罗·巴拉莫",
+				"佩德罗的祖母", "米盖尔·巴拉莫", "卢卡斯·巴拉莫", "雷德里亚神父", "安娜",
+				"玛丽娅·地亚达", "达米亚娜", "多尼斯", "多尼斯的姐姐", "多罗脱阿",
+				"富尔戈尔·塞达诺", "托里维奥·阿尔德莱德", "康脱拉的主教", "巴托洛梅·圣胡安",
+				"胡斯蒂娜", "蒂尔夸脱（达马西奥）", "弗洛伦西奥", "赫拉尔多律师",
+				"福斯塔太太", "安赫莱斯太太", "比亚妈妈"]:
+			GameState.meet(pid)
+		GameState.cycle_mark("阿文迪奥")
+		GameState.cycle_mark("爱杜薇海斯")
+		GameState.cycle_mark("爱杜薇海斯")
 		_toggle_notebook()
 	if "--listentest" in args:                       # 自测：对准声源→捕捉→连点推进台词
 		await get_tree().create_timer(0.6).timeout
@@ -156,8 +165,8 @@ func _build_layers() -> void:
 	add_child(note_btn)
 	note_panel = PanelContainer.new()
 	note_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
-	note_panel.position = Vector2(1270, 40)        # 右缘贴笔记按钮左缘(1740)，顶与按钮平齐
-	note_panel.size = Vector2(460, 500)
+	note_panel.position = Vector2(1230, 40)        # 右缘贴笔记按钮左缘(1740)，顶与按钮平齐
+	note_panel.size = Vector2(500, 860)
 	note_panel.visible = false
 	add_child(note_panel)
 	var nv := VBoxContainer.new()
@@ -167,13 +176,22 @@ func _build_layers() -> void:
 	nt.add_theme_color_override("font_color", INK)
 	nt.add_theme_font_size_override("font_size", 28)
 	nv.add_child(nt)
+	note_count = Label.new()
+	note_count.add_theme_color_override("font_color", MARIGOLD)
+	note_count.add_theme_font_size_override("font_size", 20)
+	nv.add_child(note_count)
 	var hintl := Label.new()
 	hintl.text = "（点人名切换你的判断，无人验证对错）"
 	hintl.add_theme_color_override("font_color", DIM)
 	hintl.add_theme_font_size_override("font_size", 18)
 	nv.add_child(hintl)
+	var nscroll := ScrollContainer.new()
+	nscroll.custom_minimum_size = Vector2(452, 740)
+	nscroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	nv.add_child(nscroll)
 	note_list = VBoxContainer.new()
-	nv.add_child(note_list)
+	note_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nscroll.add_child(note_list)
 	# 碎片卡册按钮与面板
 	cards_btn = Button.new()
 	cards_btn.text = "碎 片"
@@ -406,11 +424,16 @@ func _show_card_detail(id: String) -> void:
 		card_detail = null)
 	right.add_child(close)
 
-const MARKS := ["？ 说不清", "☀ 活人", "✝ 死人"]
+const MARKS := ["？ 说不清", "○ 活着", "● 死了"]
 
 func _refresh_notebook() -> void:
 	for c in note_list.get_children():
 		c.queue_free()
+	var marked := 0
+	for k in GameState.notebook.keys():
+		if int(GameState.notebook[k]) > 0:
+			marked += 1
+	note_count.text = "已遇见 %d 人　已判断 %d 人" % [GameState.notebook.size(), marked]
 	for person in GameState.notebook.keys():
 		var b := Button.new()
 		b.text = "%s　—— %s" % [person, MARKS[int(GameState.notebook[person])]]

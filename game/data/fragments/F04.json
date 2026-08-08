@@ -1,6 +1,7 @@
 {
 	"id": "F04",
 	"ops": [
+		{"title": "第一章 · 空村投宿"},
 		{"bg": "present_eduviges_puerta_01"},
 		{"meet": "爱杜薇海斯"},
 		{"who": "爱杜薇海斯", "text": "请进来吧。"},
