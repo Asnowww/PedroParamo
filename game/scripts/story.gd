@@ -65,6 +65,20 @@ func _ready() -> void:
 		GameState.meet("阿文迪奥")
 		GameState.meet("爱杜薇海斯")
 		_toggle_notebook()
+	if "--listentest" in args:                       # 自测：对准声源→捕捉→连点推进台词
+		await get_tree().create_timer(0.6).timeout
+		get_viewport().warp_mouse(Vector2(373, 540)) # 对应 angle=-55 的雨声
+		await get_tree().create_timer(2.2).timeout
+		print("CAPTURED: ", text_label.text)
+		for k in range(3):
+			for pressed in [true, false]:
+				var ev := InputEventMouseButton.new()
+				ev.button_index = MOUSE_BUTTON_LEFT
+				ev.pressed = pressed
+				ev.position = Vector2(960, 900)
+				Input.parse_input_event(ev)
+			await get_tree().create_timer(0.4).timeout
+			print("AFTER CLICK %d: " % (k + 1), text_label.text if dlg_panel.visible else "(面板已关闭)")
 	for a in args:
 		if a.begins_with("--clicks="):               # 自测：先连点 N 下
 			await get_tree().create_timer(1.0).timeout
@@ -471,6 +485,7 @@ func _build_listen(cfg: Dictionary) -> void:
 	listen_target = -1
 	listen_root = Control.new()
 	listen_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	listen_root.mouse_filter = Control.MOUSE_FILTER_IGNORE   # 否则吞掉点击，台词无法推进
 	add_child(listen_root)
 	var veil := ColorRect.new()
 	veil.color = Color(0.01, 0.01, 0.02, 0.6)
@@ -599,6 +614,7 @@ func _build_puzzle(cfg: Dictionary) -> void:
 	var n := puzzle_order.size()
 	puzzle_root = Control.new()
 	puzzle_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	puzzle_root.mouse_filter = Control.MOUSE_FILTER_IGNORE   # 卡牌自己收事件，根层放行
 	add_child(puzzle_root)
 	var veil := ColorRect.new()
 	veil.color = Color(0.03, 0.025, 0.04, 0.72)
