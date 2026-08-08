@@ -14,7 +14,6 @@ var puzzle_active := false
 
 var bg_a: TextureRect
 var bg_b: TextureRect
-var erosion: ColorRect
 var dlg_panel: PanelContainer
 var name_label: Label
 var text_label: RichTextLabel
@@ -75,14 +74,8 @@ func _build_layers() -> void:
 	var tw := create_tween().set_loops()
 	tw.tween_property(bg_a, "scale", Vector2(1.06, 1.06), 22.0).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(bg_a, "scale", Vector2(1.0, 1.0), 22.0).set_trans(Tween.TRANS_SINE)
-	erosion = ColorRect.new()
-	erosion.set_anchors_preset(Control.PRESET_FULL_RECT)
-	erosion.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/erosion.gdshader")
-	mat.set_shader_parameter("intensity", GameState.whisper)
-	erosion.material = mat
-	add_child(erosion)
+	# 低语值改为隐性数值（2026-08-08 用户决定砍掉常驻侵蚀可视化）；
+	# erosion.gdshader 保留，仅供 M4 中点死亡的一次性吞噬演出使用。
 	# 对话框
 	dlg_panel = PanelContainer.new()
 	dlg_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
@@ -266,9 +259,6 @@ func _crossfade(name: String) -> void:
 
 func _set_whisper(v: float) -> void:
 	GameState.whisper = clampf(maxf(GameState.whisper, v), 0.0, 1.0)
-	var tw := create_tween()
-	tw.tween_method(func(x): erosion.material.set_shader_parameter("intensity", x),
-		erosion.material.get_shader_parameter("intensity"), GameState.whisper, 1.0)
 
 func _show_toast(t: String) -> void:
 	toast.text = t
