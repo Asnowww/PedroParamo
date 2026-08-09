@@ -3,4 +3,4 @@ art/final/
 .godot/
 text/
 tools/m3_src/
-*.translation
+game/data/*.translation
