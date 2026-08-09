@@ -101,6 +101,36 @@ func _ready() -> void:
 					ev.position = Vector2(960, 540)
 					Input.parse_input_event(ev)
 				await get_tree().create_timer(0.25).timeout
+	if "--dragtest" in args:                         # 自测：模拟真实拖拽（抓卡片下缘，光标停在槽外）
+		var guard2 := 0
+		while not puzzle_active and guard2 < 200:
+			guard2 += 1
+			waiting_click = false
+			_advance()
+		await get_tree().process_frame
+		var target: TextureRect = null
+		for c in cards:
+			if String(c.get_meta("id")) == puzzle_order[0]:
+				target = c
+		var slot0: Control = slots[0]
+		var grab := target.global_position + Vector2(target.size.x * 0.5, target.size.y - 20)  # 抓下缘
+		var drop := slot0.global_position + Vector2(slot0.size.x * 0.5, slot0.size.y + 34)     # 松手时光标在槽下方34px
+		for step in [[grab, "press"], [drop, "move"], [drop, "release"]]:
+			var pos: Vector2 = step[0]
+			get_viewport().warp_mouse(pos)
+			await get_tree().process_frame
+			if step[1] == "move":
+				var mm := InputEventMouseMotion.new(); mm.position = pos; Input.parse_input_event(mm)
+			else:
+				var mb := InputEventMouseButton.new()
+				mb.button_index = MOUSE_BUTTON_LEFT; mb.pressed = (step[1] == "press"); mb.position = pos
+				Input.parse_input_event(mb)
+			await get_tree().create_timer(0.15).timeout
+		await get_tree().create_timer(0.25).timeout
+		var lt0: TextureRect = candles_lit[0]
+		print("DRAGTEST 卡片落位=", target.get_meta("slot", -1),
+			"  与槽中心距离=%.0fpx" % target.global_position.distance_to(slot0.global_position + (slot0.size - target.size) / 2.0),
+			"  蜡烛透明度=%.2f" % lt0.modulate.a)
 	var shot_delay := 2.0
 	for a in args:
 		if a.begins_with("--shotat="):
@@ -841,20 +871,32 @@ func _on_card_input(event: InputEvent, card: TextureRect) -> void:
 		card.global_position = card.get_global_mouse_position() - drag_offset
 
 func _drop_card(card: TextureRect) -> void:
-	for slot in slots:
-		if slot.get_global_rect().has_point(card.get_global_mouse_position()):
-			var idx := slots.find(slot)
-			for other in cards:
-				if other != card and other.has_meta("slot") and int(other.get_meta("slot")) == idx:
-					card.set_meta("slot", -1)
-					card.position += Vector2(0, 48)
-					return
-			card.global_position = slot.global_position + (slot.size - card.size) / 2.0
-			card.set_meta("slot", idx)
-			if String(card.get_meta("id")) != puzzle_order[idx]:
-				_set_whisper(GameState.whisper + 0.03)
-			_update_candles()
-			return
+	## 按「卡片与槽位的重叠面积」判定，而不是光标位置——
+	## 抓着卡片边角拖时，卡片已经在槽里、光标却还在槽外，那样会漏判。
+	var cr := card.get_global_rect()
+	var card_area: float = maxf(1.0, cr.size.x * cr.size.y)
+	var idx := -1
+	var best := 0.0
+	for i in range(slots.size()):
+		var inter: Rect2 = (slots[i] as Control).get_global_rect().intersection(cr)
+		var a: float = maxf(0.0, inter.size.x) * maxf(0.0, inter.size.y)
+		if a > best:
+			best = a
+			idx = i
+	if idx >= 0 and best >= card_area * 0.25:          # 压住四分之一就算落进去
+		for other in cards:
+			if other != card and other.has_meta("slot") and int(other.get_meta("slot")) == idx:
+				card.set_meta("slot", -1)               # 槽已被占，弹开
+				card.position += Vector2(0, 48)
+				_update_candles()
+				return
+		var slot: Control = slots[idx]
+		card.global_position = slot.global_position + (slot.size - card.size) / 2.0
+		card.set_meta("slot", idx)
+		if String(card.get_meta("id")) != puzzle_order[idx]:
+			_set_whisper(GameState.whisper + 0.03)
+		_update_candles()
+		return
 	card.set_meta("slot", -1)
 	_update_candles()
 
