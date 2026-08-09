@@ -1,4 +1,26 @@
-# 正式音效候选清单（待用户审核）
+# 正式音效选型（已定稿 · 2026-08-09）
+
+> 用户已听选完毕，六条正式音效已生成并替换进 `game/assets/audio/`。
+> 生成脚本：`tools/build_audio.py`（可重跑）。素材全部 CC0，无需署名。
+
+## 最终采用
+
+| 文件 | 素材 | 处理 |
+|---|---|---|
+| `lluvia_loop.wav` | [conleec 171980](https://freesound.org/people/conleec/sounds/171980/) | 取 0:40 起 26 秒，无缝循环，24.0s |
+| `campana_loop.wav` | [HMTSCCSound 554655](https://freesound.org/people/HMTSCCSound/sounds/554655/) 单记绳拉低音钟 | **自排间隔**：低通 1.8k 推远，3 下敲击间隔 8.5 秒，26.0s |
+| `viento_loop.wav` | [craigsmith 438869](https://freesound.org/people/craigsmith/sounds/438869/) | 用户指定从 1:00 起，28 秒，无缝循环 |
+| `murmullo_loop.wav` | [craigsmith 438384](https://freesound.org/people/craigsmith/sounds/438384/) | 用户指定 2.7s–18s，13.8s |
+| `mar_loop.wav` | [derjuli 824106](https://freesound.org/people/derjuli/sounds/824106/) | 取 0:08 起 28 秒，无缝循环 |
+| `latido.wav` | [insaind 595050](https://freesound.org/people/insaind/sounds/595050/) | 放慢至 0.78 倍、低通 320Hz 加重，响度 -15 dBFS（比其余响约 9 dB） |
+
+统一处理：单声道 44.1kHz、RMS 对齐（环境 -24 dBFS / 心跳 -15 dBFS）、软拐点限幅、循环体首尾交叉淡化。
+
+**注**：素材取自 Freesound 的公开预览 mp3（约 128kbps）。若要无损原件，登录 Freesound 下载原文件覆盖 `tools/` 里的源，再重跑 `build_audio.py` 即可。
+
+---
+
+## 原候选清单（存档）
 
 **筛选原则**
 
