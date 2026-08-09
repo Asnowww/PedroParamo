@@ -45,6 +45,7 @@ var listen_aim := 0.0               # -90..90 度
 var listen_lock := 0.0
 var listen_target := -1
 var listen_compass: TextureRect
+var listen_hint: Label
 var listen_counter: Label
 var listen_lines: Array = []        # 捕捉到声音后的台词队列
 var listen_after_card := ""
@@ -111,7 +112,13 @@ func _ready() -> void:
 				guard += 1
 				waiting_click = false
 				_advance()
-			if puzzle_active and si < puzzle_order.size():
+			if "--solve" in args:                    # 自测：一次性摆对全部，触发结束转场
+				for k in range(puzzle_order.size()):
+					for c in cards:
+						if String(c.get_meta("id")) == puzzle_order[k]:
+							c.set_meta("slot", k)
+				_update_candles()
+			elif puzzle_active and si < puzzle_order.size():
 				for c in cards:
 					if String(c.get_meta("id")) == puzzle_order[si]:
 						c.set_meta("slot", si)
@@ -621,6 +628,7 @@ func _build_listen(cfg: Dictionary) -> void:
 	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	listen_root.add_child(veil)
 	var hint := Label.new()
+	listen_hint = hint
 	hint.text = cfg.get("hint", "左右移动鼠标，把耳朵转向声音；对准了，就停住。")
 	hint.add_theme_color_override("font_color", DIM)
 	hint.add_theme_font_size_override("font_size", 26)
@@ -663,6 +671,8 @@ func _update_listen_counter() -> void:
 func _process(delta: float) -> void:
 	if listen_root == null or not listen_lines.is_empty():
 		return
+	if listen_compass.modulate.a < 0.05:
+		return                                    # 罗盘收起时暂停瞄准
 	listen_aim = clampf((get_global_mouse_position().x - 960.0) / 960.0 * 90.0, -90.0, 90.0)
 	listen_compass.rotation_degrees = listen_aim
 	var best := -1
@@ -682,7 +692,7 @@ func _process(delta: float) -> void:
 			best_diff = diff
 			best = i
 	if best >= 0 and best_diff < 12.0:
-		listen_compass.modulate = Color(1.0, 0.75, 0.4)
+		listen_compass.modulate = Color(1.0, 0.75, 0.4, listen_compass.modulate.a)
 		if best == listen_target:
 			listen_lock += delta
 			if listen_lock >= 1.2:
@@ -691,7 +701,7 @@ func _process(delta: float) -> void:
 			listen_target = best
 			listen_lock = 0.0
 	else:
-		listen_compass.modulate = Color.WHITE
+		listen_compass.modulate = Color(1, 1, 1, listen_compass.modulate.a)
 		listen_target = -1
 		listen_lock = 0.0
 
@@ -701,6 +711,7 @@ func _capture_source(i: int) -> void:
 	listen_lock = 0.0
 	listen_target = -1
 	_update_listen_counter()
+	_show_compass(false)                     # 听清了就收起罗盘——这段不再需要瞄准
 	listen_after_card = s["data"].get("card", "")
 	listen_lines = s["data"].get("lines", []).duplicate()
 	_show_listen_line()
@@ -718,12 +729,23 @@ func _show_listen_line() -> void:
 				all_done = false
 		if all_done:
 			_end_listen()
+		else:
+			_show_compass(true)              # 还有没听到的，罗盘回来
 		return
 	var line: Array = listen_lines.pop_front()
 	dlg_panel.visible = true
 	name_label.text = line[0]
 	name_label.visible = line[0] != ""
 	text_label.text = line[1]
+
+func _show_compass(on: bool) -> void:
+	if listen_compass == null or not is_instance_valid(listen_compass):
+		return
+	var tw := create_tween()
+	tw.tween_property(listen_compass, "modulate:a", 1.0 if on else 0.0, 0.35)
+	if listen_hint != null and is_instance_valid(listen_hint):
+		var tw2 := create_tween()
+		tw2.tween_property(listen_hint, "modulate:a", 1.0 if on else 0.0, 0.35)
 
 func _end_listen() -> void:
 	for s in listen_sources:
@@ -874,6 +896,16 @@ func _update_candles() -> void:
 	if correct == puzzle_order.size():
 		puzzle_active = false
 		_set_whisper(GameState.whisper + 0.15)
-		await get_tree().create_timer(2.2).timeout
+		await get_tree().create_timer(2.2).timeout      # 让最后一支烛烧稳
+		# 拼图层直接淡掉——底下的场景就这样从暗处一点点亮起来，中间不插黑场
+		var blocker := Control.new()                     # 转场期间吃掉点击，防手滑跳过
+		blocker.set_anchors_preset(Control.PRESET_FULL_RECT)
+		blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+		add_child(blocker)
+		_advance()                                       # 先在拼图层背后换好景与台词
+		var tw := create_tween()
+		tw.tween_property(puzzle_root, "modulate:a", 0.0, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		await tw.finished
 		puzzle_root.queue_free()
-		_advance()
+		puzzle_root = null
+		blocker.queue_free()
