@@ -859,7 +859,7 @@ func _drop_card(card: TextureRect) -> void:
 	_update_candles()
 
 func _set_candle(i: int, on: bool, _lit, _unlit) -> void:
-	## 蜡烛渐亮/渐灭：点燃时先跳一下再稳住，像烛芯真的烧起来
+	## 蜡烛渐亮/渐灭：从熄灭态平滑地亮起来（1.4s），拿走卡片则渐灭
 	if i >= candles_lit.size():
 		return
 	var lt: TextureRect = candles_lit[i]
@@ -873,11 +873,9 @@ func _set_candle(i: int, on: bool, _lit, _unlit) -> void:
 	var tw := create_tween()
 	lt.set_meta("tw", tw)
 	if on:
-		tw.tween_property(lt, "modulate:a", 0.55, 0.45).set_trans(Tween.TRANS_SINE)  # 火苗吃上蜡
-		tw.tween_property(lt, "modulate:a", 0.34, 0.16)                              # 一次轻微回落
-		tw.tween_property(lt, "modulate:a", 1.0, 0.95).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tw.tween_property(lt, "modulate:a", 1.0, 1.4).set_trans(Tween.TRANS_SINE)   # 从熄灭一路匀亮上来
 	else:
-		tw.tween_property(lt, "modulate:a", 0.0, 0.5).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(lt, "modulate:a", 0.0, 0.6).set_trans(Tween.TRANS_SINE)
 
 func _update_candles() -> void:
 	var lit := load("res://assets/candle_lit.png")
