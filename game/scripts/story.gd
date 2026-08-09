@@ -31,6 +31,7 @@ var overlay_label: Label
 var slots: Array = []
 var cards: Array = []
 var candles: Array = []
+var candles_lit: Array = []            # 点亮态图层（叠在熄灭态上做渐变）
 var puzzle_order: Array = []
 var puzzle_root: Control = null
 var drag_card: TextureRect = null
@@ -99,9 +100,26 @@ func _ready() -> void:
 					ev.position = Vector2(960, 540)
 					Input.parse_input_event(ev)
 				await get_tree().create_timer(0.25).timeout
+	var shot_delay := 2.0
+	for a in args:
+		if a.begins_with("--shotat="):
+			shot_delay = float(a.substr(9))
+		if a.begins_with("--place="):                # 自测：快进到拼图，把第N槽的正确卡落位
+			var si := int(a.substr(8))
+			var guard := 0
+			while not puzzle_active and guard < 200:
+				guard += 1
+				waiting_click = false
+				_advance()
+			if puzzle_active and si < puzzle_order.size():
+				for c in cards:
+					if String(c.get_meta("id")) == puzzle_order[si]:
+						c.set_meta("slot", si)
+						c.global_position = slots[si].global_position + (slots[si].size - c.size) / 2.0
+						_update_candles()
 	for a in args:
 		if a.begins_with("--shot="):
-			await get_tree().create_timer(2.0).timeout
+			await get_tree().create_timer(shot_delay).timeout
 			get_viewport().get_texture().get_image().save_png(a.substr(7))
 			get_tree().quit()
 
@@ -739,7 +757,7 @@ func _build_puzzle(cfg: Dictionary) -> void:
 	puzzle_root.add_child(title)
 	var total_w := n * 280 + (n - 1) * 60
 	var x0 := (1920 - total_w) / 2.0
-	slots = []; cards = []; candles = []
+	slots = []; cards = []; candles = []; candles_lit = []
 	for i in range(n):
 		var slot := Panel.new()
 		slot.add_theme_stylebox_override("panel", UiTheme.slot_box())
@@ -756,6 +774,17 @@ func _build_puzzle(cfg: Dictionary) -> void:
 		cn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		puzzle_root.add_child(cn)
 		candles.append(cn)
+		# 点亮态叠在熄灭态之上，靠透明度渐变——由暗慢慢烧起来，而不是瞬间跳变
+		var lt := TextureRect.new()
+		lt.texture = load("res://assets/candle_lit.png")
+		lt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		lt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+		lt.size = cn.size
+		lt.position = cn.position
+		lt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lt.modulate = Color(1, 1, 1, 0)
+		puzzle_root.add_child(lt)
+		candles_lit.append(lt)
 	var shuffled := puzzle_order.duplicate()
 	shuffled.shuffle()
 	if shuffled == puzzle_order:
@@ -807,6 +836,27 @@ func _drop_card(card: TextureRect) -> void:
 	card.set_meta("slot", -1)
 	_update_candles()
 
+func _set_candle(i: int, on: bool, _lit, _unlit) -> void:
+	## 蜡烛渐亮/渐灭：点燃时先跳一下再稳住，像烛芯真的烧起来
+	if i >= candles_lit.size():
+		return
+	var lt: TextureRect = candles_lit[i]
+	if lt.has_meta("on") and bool(lt.get_meta("on")) == on:
+		return
+	lt.set_meta("on", on)
+	if lt.has_meta("tw") and lt.get_meta("tw") is Tween:
+		var old: Tween = lt.get_meta("tw")
+		if old.is_valid():
+			old.kill()
+	var tw := create_tween()
+	lt.set_meta("tw", tw)
+	if on:
+		tw.tween_property(lt, "modulate:a", 0.55, 0.45).set_trans(Tween.TRANS_SINE)  # 火苗吃上蜡
+		tw.tween_property(lt, "modulate:a", 0.34, 0.16)                              # 一次轻微回落
+		tw.tween_property(lt, "modulate:a", 1.0, 0.95).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	else:
+		tw.tween_property(lt, "modulate:a", 0.0, 0.5).set_trans(Tween.TRANS_SINE)
+
 func _update_candles() -> void:
 	var lit := load("res://assets/candle_lit.png")
 	var unlit := load("res://assets/candle_unlit.png")
@@ -818,12 +868,12 @@ func _update_candles() -> void:
 					and String(card.get_meta("id")) == puzzle_order[i]:
 				good = true
 				break
-		candles[i].texture = lit if good else unlit
+		_set_candle(i, good, lit, unlit)
 		if good:
 			correct += 1
 	if correct == puzzle_order.size():
 		puzzle_active = false
 		_set_whisper(GameState.whisper + 0.15)
-		await get_tree().create_timer(1.4).timeout
+		await get_tree().create_timer(2.2).timeout
 		puzzle_root.queue_free()
 		_advance()
