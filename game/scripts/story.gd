@@ -563,11 +563,15 @@ func _show_card_detail(id: String) -> void:
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 28)
 	card_detail.add_child(hb)
+	# 卡图是 2:3。框宽按内容高度的 2/3 给，KEEP_ASPECT 才会正好填满高度、
+	# 不留上下留白——这样卡片下沿与右侧「合上」按钮的下沿严格齐平。
+	const DETAIL_MARGIN := 28.0
+	var content_h: float = card_detail.size.y - DETAIL_MARGIN * 2.0
 	var big := TextureRect.new()
 	big.texture = Art.texture(id)
 	big.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	big.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
-	big.custom_minimum_size = Vector2(400, 620)
+	big.custom_minimum_size = Vector2(content_h * 2.0 / 3.0, content_h)
 	hb.add_child(big)
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
