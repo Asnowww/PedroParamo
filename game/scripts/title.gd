@@ -18,6 +18,7 @@ const CHAPTERS := [
 	["第八章 · 崩塌", "F58", "石头一样的老人，和黎明的那把刀"],
 ]
 
+var veil: ColorRect
 var chapter_panel: PanelContainer
 var save_panel: PanelContainer
 var save_rows: VBoxContainer
@@ -42,6 +43,14 @@ func _ready() -> void:
 	cont.disabled = not GameState.any_save()
 	_mk_btn(vb, "章 节", _toggle_chapters)
 	_mk_btn(vb, "离 开", func(): get_tree().quit())
+	veil = ColorRect.new()                        # 面板背后的毛玻璃暗化，同时挡住穿透的按钮
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_STOP
+	veil.visible = false
+	var vm := ShaderMaterial.new()
+	vm.shader = load("res://shaders/frosted.gdshader")
+	veil.material = vm
+	add_child(veil)
 	_build_chapter_panel()
 	_build_save_panel()
 	var args := OS.get_cmdline_user_args()
@@ -66,7 +75,7 @@ func _mk_btn(parent: Control, label: String, fn: Callable) -> Button:
 
 func _build_chapter_panel() -> void:
 	chapter_panel = PanelContainer.new()
-	chapter_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
+	chapter_panel.add_theme_stylebox_override("panel", UiTheme.solid_box())
 	chapter_panel.position = Vector2(430, 120)
 	chapter_panel.size = Vector2(1060, 840)
 	chapter_panel.visible = false
@@ -124,12 +133,13 @@ func _toggle_chapters() -> void:
 	chapter_panel.visible = not chapter_panel.visible
 	if chapter_panel.visible:
 		save_panel.visible = false
+	_sync_veil()
 
 func _build_save_panel() -> void:
 	save_panel = PanelContainer.new()
-	save_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
-	save_panel.position = Vector2(560, 210)
-	save_panel.size = Vector2(860, 620)
+	save_panel.add_theme_stylebox_override("panel", UiTheme.solid_box())
+	save_panel.position = Vector2(530, 240)
+	save_panel.size = Vector2(860, 560)
 	save_panel.visible = false
 	add_child(save_panel)
 	var vb := VBoxContainer.new()
@@ -140,11 +150,6 @@ func _build_save_panel() -> void:
 	t.add_theme_color_override("font_color", INK)
 	t.add_theme_font_size_override("font_size", 34)
 	vb.add_child(t)
-	var h := Label.new()
-	h.text = "（自动存档由系统写入；下面三格由你在游戏中手动保存）"
-	h.add_theme_color_override("font_color", DIM)
-	h.add_theme_font_size_override("font_size", 20)
-	vb.add_child(h)
 	save_rows = VBoxContainer.new()
 	save_rows.add_theme_constant_override("separation", 10)
 	vb.add_child(save_rows)
@@ -160,6 +165,10 @@ func _toggle_saves() -> void:
 	if save_panel.visible:
 		chapter_panel.visible = false
 		_refresh_saves()
+	_sync_veil()
+
+func _sync_veil() -> void:
+	veil.visible = chapter_panel.visible or save_panel.visible
 
 func _refresh_saves() -> void:
 	for c in save_rows.get_children():

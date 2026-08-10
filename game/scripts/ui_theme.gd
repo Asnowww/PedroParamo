@@ -32,6 +32,16 @@ static func glass_box() -> StyleBoxFlat:
 	sb.set_corner_radius_all(8)
 	return sb
 
+static func solid_box() -> StyleBoxFlat:
+	## 不透明面板：压在毛玻璃暗化层上用
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.075, 0.065, 0.058, 1.0)
+	sb.border_color = Color(0.78, 0.62, 0.32)
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(26)
+	sb.set_corner_radius_all(4)
+	return sb
+
 static func slot_box() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.10, 0.08, 0.07, 0.6)
