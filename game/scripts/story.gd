@@ -282,16 +282,18 @@ func _build_layers() -> void:
 	save_btn.pressed.connect(_toggle_slots)
 	add_child(save_btn)
 	quit_btn = Button.new()
-	quit_btn.text = "保存并退出"
-	quit_btn.position = Vector2(1700, 244)
-	quit_btn.size = Vector2(180, 56)
-	quit_btn.add_theme_font_size_override("font_size", 22)
-	quit_btn.pressed.connect(func(): _open_slots(true))
+	quit_btn.text = "退 出"
+	quit_btn.position = Vector2(1740, 244)
+	quit_btn.size = Vector2(140, 56)
+	quit_btn.add_theme_font_size_override("font_size", 24)
+	quit_btn.pressed.connect(func():
+		GameState.save()                      # 退出前写自动存档，进度不丢
+		get_tree().change_scene_to_file("res://scenes/title.tscn"))
 	add_child(quit_btn)
 	slot_panel = PanelContainer.new()
 	slot_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
 	slot_panel.position = Vector2(560, 260)
-	slot_panel.size = Vector2(800, 470)
+	slot_panel.size = Vector2(820, 420)
 	slot_panel.visible = false
 	add_child(slot_panel)
 	var sv := VBoxContainer.new()
@@ -302,11 +304,6 @@ func _build_layers() -> void:
 	st.add_theme_color_override("font_color", INK)
 	st.add_theme_font_size_override("font_size", 32)
 	sv.add_child(st)
-	var sh := Label.new()
-	sh.text = "（自动存档由系统写入，不能覆盖）"
-	sh.add_theme_color_override("font_color", DIM)
-	sh.add_theme_font_size_override("font_size", 19)
-	sv.add_child(sh)
 	slot_rows = VBoxContainer.new()
 	slot_rows.add_theme_constant_override("separation", 10)
 	sv.add_child(slot_rows)
@@ -463,6 +460,8 @@ func _toggle_slots() -> void:
 func _open_slots(then_quit: bool) -> void:
 	_quit_after_save = then_quit
 	slot_panel.visible = not slot_panel.visible or then_quit
+	if overlay_label != null:
+		overlay_label.visible = overlay_label.visible and not slot_panel.visible
 	note_panel.visible = false
 	album.visible = false
 	if slot_panel.visible:
@@ -474,7 +473,7 @@ func _refresh_slots() -> void:
 	for slot in range(1, GameState.SLOT_COUNT):        # 手动只写 1–3，自动档不可覆盖
 		var info := GameState.slot_info(slot)
 		var row := Button.new()
-		row.custom_minimum_size = Vector2(760, 84)
+		row.custom_minimum_size = Vector2(744, 84)
 		row.pressed.connect(func():
 			GameState.save(slot)
 			slot_panel.visible = false
@@ -488,22 +487,24 @@ func _refresh_slots() -> void:
 		hb.set_anchors_preset(Control.PRESET_FULL_RECT)
 		hb.offset_left = 22
 		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_theme_constant_override("separation", 0)
 		row.add_child(hb)
-		var nl := Label.new()
-		nl.text = "存档 %d" % slot
-		nl.custom_minimum_size = Vector2(160, 0)
-		nl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		nl.add_theme_color_override("font_color", INK)
-		nl.add_theme_font_size_override("font_size", 26)
-		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hb.add_child(nl)
-		var dl := Label.new()
-		dl.text = "空　—　可写入" if info.is_empty() else "%s　　碎片 %d 张　　%s　（覆盖）" % [info["chapter"], info["cards"], info["stamp"]]
-		dl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		dl.add_theme_color_override("font_color", DIM if info.is_empty() else INK)
-		dl.add_theme_font_size_override("font_size", 22)
-		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hb.add_child(dl)
+		var cols := [["存档 %d" % slot, 140, 26, INK]]
+		if info.is_empty():
+			cols.append(["空　可写入", 280, 22, DIM])
+		else:
+			cols.append([String(info["chapter"]), 280, 22, INK])
+			cols.append(["碎片 %d 张" % int(info["cards"]), 130, 22, INK])
+			cols.append([String(info["stamp"]), 190, 22, DIM])
+		for col in cols:
+			var l := Label.new()
+			l.text = String(col[0])
+			l.custom_minimum_size = Vector2(float(col[1]), 0)
+			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			l.add_theme_color_override("font_color", col[3])
+			l.add_theme_font_size_override("font_size", int(col[2]))
+			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			hb.add_child(l)
 
 func _toggle_cards() -> void:
 	album.visible = not album.visible

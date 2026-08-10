@@ -11,8 +11,8 @@ const CHAPTERS := [
 	["第一章 · 空村投宿", "F04", "爱杜薇海斯开门：是你母亲通知我的"],
 	["第二章 · 回声", "F14", "安娜的控诉，神父的金币，满村的低语"],
 	["第三章 · 塌了一半的屋顶", "F28", "多尼斯兄妹，与八月的闷热"],
-	["第四章 · 坟中", "F33", "你已经死了。现在，学着用耳朵看"],
-	["第五章 · 半月庄", "F18", "账本、婚事、界桩：一座庄园如何长大"],
+	["第四章 · 坟中", "F33", "在无尽的黑暗中，学着用耳朵看"],
+	["第五章 · 半月庄", "F18", "账本、婚事、界桩，一座庄园如何长大"],
 	["第六章 · 苏萨娜", "F36", "他等了三十年的女人，从不属于他"],
 	["第七章 · 钟声", "F55", "三日不停的钟，与一场错认的节日"],
 	["第八章 · 崩塌", "F58", "石头一样的老人，和黎明的那把刀"],
@@ -129,7 +129,7 @@ func _build_save_panel() -> void:
 	save_panel = PanelContainer.new()
 	save_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
 	save_panel.position = Vector2(560, 210)
-	save_panel.size = Vector2(800, 620)
+	save_panel.size = Vector2(860, 620)
 	save_panel.visible = false
 	add_child(save_panel)
 	var vb := VBoxContainer.new()
@@ -167,7 +167,7 @@ func _refresh_saves() -> void:
 	for slot in range(GameState.SLOT_COUNT):
 		var info := GameState.slot_info(slot)
 		var row := Button.new()
-		row.custom_minimum_size = Vector2(760, 92)
+		row.custom_minimum_size = Vector2(784, 92)
 		row.disabled = info.is_empty()
 		row.pressed.connect(func():
 			GameState.load_save(slot)
@@ -179,21 +179,21 @@ func _refresh_saves() -> void:
 		hb.offset_right = -22
 		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(hb)
-		var name_lbl := Label.new()
-		name_lbl.text = "自动存档" if slot == GameState.SLOT_AUTO else "存档 %d" % slot
-		name_lbl.custom_minimum_size = Vector2(190, 0)
-		name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		name_lbl.add_theme_color_override("font_color", MARIGOLD if slot == GameState.SLOT_AUTO else INK)
-		name_lbl.add_theme_font_size_override("font_size", 27)
-		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hb.add_child(name_lbl)
-		var desc := Label.new()
+		hb.add_theme_constant_override("separation", 0)
+		var cols := [["自动存档" if slot == GameState.SLOT_AUTO else "存档 %d" % slot, 164, 26,
+				MARIGOLD if slot == GameState.SLOT_AUTO else INK]]
 		if info.is_empty():
-			desc.text = "空"
+			cols.append(["空", 280, 23, DIM])
 		else:
-			desc.text = "%s　　碎片 %d 张　　%s" % [info["chapter"], info["cards"], info["stamp"]]
-		desc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		desc.add_theme_color_override("font_color", DIM if info.is_empty() else INK)
-		desc.add_theme_font_size_override("font_size", 23)
-		desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hb.add_child(desc)
+			cols.append([String(info["chapter"]), 280, 23, INK])
+			cols.append(["碎片 %d 张" % int(info["cards"]), 130, 23, INK])
+			cols.append([String(info["stamp"]), 190, 23, DIM])
+		for col in cols:
+			var l := Label.new()
+			l.text = String(col[0])
+			l.custom_minimum_size = Vector2(float(col[1]), 0)
+			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			l.add_theme_color_override("font_color", col[3])
+			l.add_theme_font_size_override("font_size", int(col[2]))
+			l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			hb.add_child(l)
