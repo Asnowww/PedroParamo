@@ -85,6 +85,14 @@ func _ready() -> void:
 		for mk in ["阿文迪奥", "爱杜薇海斯", "爱杜薇海斯"]:
 			if GameState.notebook.has(mk): GameState.cycle_mark(mk)
 		_toggle_notebook()
+	if "--savetest" in args:                         # 自测：开存档面板；--writeslot=N 直接写入该格
+		_open_slots(false)
+		for a3 in args:
+			if a3.begins_with("--writeslot="):
+				var sl := int(a3.substr(12))
+				GameState.save(sl)
+				print("WROTE slot ", sl, " -> ", GameState.slot_info(sl))
+				_refresh_slots()
 	if "--listentest" in args:                       # 自测：对准声源→捕捉→连点推进台词
 		await get_tree().create_timer(0.6).timeout
 		get_viewport().warp_mouse(Vector2(373, 540)) # 对应 angle=-55 的雨声

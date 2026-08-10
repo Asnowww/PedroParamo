@@ -47,6 +47,8 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if "--chapters" in args:
 		_toggle_chapters()
+	if "--saves" in args:
+		_toggle_saves()
 	for a in args:
 		if a.begins_with("--shot="):
 			await get_tree().create_timer(1.5).timeout
