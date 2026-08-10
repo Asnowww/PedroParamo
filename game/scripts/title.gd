@@ -19,6 +19,8 @@ const CHAPTERS := [
 ]
 
 var chapter_panel: PanelContainer
+var save_panel: PanelContainer
+var save_rows: VBoxContainer
 
 func _ready() -> void:
 	theme = UiTheme.build()
@@ -36,13 +38,12 @@ func _ready() -> void:
 	_mk_btn(vb, "开 始", func():
 		GameState.reset()
 		get_tree().change_scene_to_file("res://scenes/story.tscn"))
-	var cont := _mk_btn(vb, "继 续", func():
-		GameState.load_save()
-		get_tree().change_scene_to_file("res://scenes/story.tscn"))
-	cont.disabled = not GameState.has_save()
+	var cont := _mk_btn(vb, "继 续", _toggle_saves)
+	cont.disabled = not GameState.any_save()
 	_mk_btn(vb, "章 节", _toggle_chapters)
 	_mk_btn(vb, "离 开", func(): get_tree().quit())
 	_build_chapter_panel()
+	_build_save_panel()
 	var args := OS.get_cmdline_user_args()
 	if "--chapters" in args:
 		_toggle_chapters()
@@ -119,3 +120,78 @@ func _build_chapter_panel() -> void:
 
 func _toggle_chapters() -> void:
 	chapter_panel.visible = not chapter_panel.visible
+	if chapter_panel.visible:
+		save_panel.visible = false
+
+func _build_save_panel() -> void:
+	save_panel = PanelContainer.new()
+	save_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
+	save_panel.position = Vector2(560, 210)
+	save_panel.size = Vector2(800, 620)
+	save_panel.visible = false
+	add_child(save_panel)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 14)
+	save_panel.add_child(vb)
+	var t := Label.new()
+	t.text = "从哪一段接着走？"
+	t.add_theme_color_override("font_color", INK)
+	t.add_theme_font_size_override("font_size", 34)
+	vb.add_child(t)
+	var h := Label.new()
+	h.text = "（自动存档由系统写入；下面三格由你在游戏中手动保存）"
+	h.add_theme_color_override("font_color", DIM)
+	h.add_theme_font_size_override("font_size", 20)
+	vb.add_child(h)
+	save_rows = VBoxContainer.new()
+	save_rows.add_theme_constant_override("separation", 10)
+	vb.add_child(save_rows)
+	var back := Button.new()
+	back.text = "返 回"
+	back.custom_minimum_size = Vector2(0, 56)
+	back.add_theme_font_size_override("font_size", 26)
+	back.pressed.connect(_toggle_saves)
+	vb.add_child(back)
+
+func _toggle_saves() -> void:
+	save_panel.visible = not save_panel.visible
+	if save_panel.visible:
+		chapter_panel.visible = false
+		_refresh_saves()
+
+func _refresh_saves() -> void:
+	for c in save_rows.get_children():
+		c.queue_free()
+	for slot in range(GameState.SLOT_COUNT):
+		var info := GameState.slot_info(slot)
+		var row := Button.new()
+		row.custom_minimum_size = Vector2(760, 92)
+		row.disabled = info.is_empty()
+		row.pressed.connect(func():
+			GameState.load_save(slot)
+			get_tree().change_scene_to_file("res://scenes/story.tscn"))
+		save_rows.add_child(row)
+		var hb := HBoxContainer.new()
+		hb.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hb.offset_left = 22
+		hb.offset_right = -22
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(hb)
+		var name_lbl := Label.new()
+		name_lbl.text = "自动存档" if slot == GameState.SLOT_AUTO else "存档 %d" % slot
+		name_lbl.custom_minimum_size = Vector2(190, 0)
+		name_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_lbl.add_theme_color_override("font_color", MARIGOLD if slot == GameState.SLOT_AUTO else INK)
+		name_lbl.add_theme_font_size_override("font_size", 27)
+		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(name_lbl)
+		var desc := Label.new()
+		if info.is_empty():
+			desc.text = "空"
+		else:
+			desc.text = "%s　　碎片 %d 张　　%s" % [info["chapter"], info["cards"], info["stamp"]]
+		desc.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		desc.add_theme_color_override("font_color", DIM if info.is_empty() else INK)
+		desc.add_theme_font_size_override("font_size", 23)
+		desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(desc)

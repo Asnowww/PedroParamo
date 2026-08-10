@@ -20,9 +20,14 @@ var text_label: RichTextLabel
 var toast: Label
 var note_btn: Button
 var note_panel: PanelContainer
+var note_scroll: ScrollContainer
 var note_list: VBoxContainer
 var note_count: Label
 var cards_btn: Button
+var save_btn: Button
+var quit_btn: Button
+var slot_panel: PanelContainer
+var slot_rows: VBoxContainer
 var album: Control
 var cards_grid: GridContainer
 var card_detail: PanelContainer = null
@@ -64,17 +69,21 @@ func _ready() -> void:
 		_toggle_cards()
 	if "--carddetail" in args:
 		_show_card_detail("card_16_rebozo")
-	if "--shownotes" in args:                        # 自测：按剧本顺序灌入全部角色
-		for pid in ["多罗莱斯", "阿文迪奥", "爱杜薇海斯", "苏萨娜·圣胡安", "佩德罗·巴拉莫",
+	if "--shownotes" in args:                        # 自测：按剧本顺序灌入角色（--notes=N 只灌前 N 个）
+		var roster := ["多罗莱斯", "阿文迪奥", "爱杜薇海斯", "苏萨娜·圣胡安", "佩德罗·巴拉莫",
 				"佩德罗的祖母", "米盖尔·巴拉莫", "卢卡斯·巴拉莫", "雷德里亚神父", "安娜",
 				"玛丽娅·地亚达", "达米亚娜", "多尼斯", "多尼斯的姐姐", "多罗脱阿",
 				"富尔戈尔·塞达诺", "托里维奥·阿尔德莱德", "康脱拉的主教", "巴托洛梅·圣胡安",
 				"胡斯蒂娜", "蒂尔夸脱（达马西奥）", "弗洛伦西奥", "赫拉尔多律师",
-				"福斯塔太太", "安赫莱斯太太", "比亚妈妈"]:
+				"福斯塔太太", "安赫莱斯太太", "比亚妈妈"]
+		var limit := roster.size()
+		for a2 in args:
+			if a2.begins_with("--notes="):
+				limit = int(a2.substr(8))
+		for pid in roster.slice(0, limit):
 			GameState.meet(pid)
-		GameState.cycle_mark("阿文迪奥")
-		GameState.cycle_mark("爱杜薇海斯")
-		GameState.cycle_mark("爱杜薇海斯")
+		for mk in ["阿文迪奥", "爱杜薇海斯", "爱杜薇海斯"]:
+			if GameState.notebook.has(mk): GameState.cycle_mark(mk)
 		_toggle_notebook()
 	if "--listentest" in args:                       # 自测：对准声源→捕捉→连点推进台词
 		await get_tree().create_timer(0.6).timeout
@@ -221,7 +230,7 @@ func _build_layers() -> void:
 	note_panel = PanelContainer.new()
 	note_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
 	note_panel.position = Vector2(1230, 40)        # 右缘贴笔记按钮左缘(1740)，顶与按钮平齐
-	note_panel.size = Vector2(500, 640)
+	note_panel.size = Vector2(500, 0)              # 高度按人数自适应，见 _refresh_notebook
 	note_panel.visible = false
 	add_child(note_panel)
 	var nv := VBoxContainer.new()
@@ -241,7 +250,8 @@ func _build_layers() -> void:
 	hintl.add_theme_font_size_override("font_size", 18)
 	nv.add_child(hintl)
 	var nscroll := ScrollContainer.new()
-	nscroll.custom_minimum_size = Vector2(452, NOTE_ROW_H * NOTE_VISIBLE)
+	note_scroll = nscroll
+	nscroll.custom_minimum_size = Vector2(452, NOTE_ROW_H)
 	nscroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	nv.add_child(nscroll)
 	note_list = VBoxContainer.new()
@@ -255,6 +265,49 @@ func _build_layers() -> void:
 	cards_btn.add_theme_font_size_override("font_size", 24)
 	cards_btn.pressed.connect(_toggle_cards)
 	add_child(cards_btn)
+	# 保存 / 保存并退出（在“碎片”下面）
+	save_btn = Button.new()
+	save_btn.text = "保 存"
+	save_btn.position = Vector2(1740, 176)
+	save_btn.size = Vector2(140, 56)
+	save_btn.add_theme_font_size_override("font_size", 24)
+	save_btn.pressed.connect(_toggle_slots)
+	add_child(save_btn)
+	quit_btn = Button.new()
+	quit_btn.text = "保存并退出"
+	quit_btn.position = Vector2(1700, 244)
+	quit_btn.size = Vector2(180, 56)
+	quit_btn.add_theme_font_size_override("font_size", 22)
+	quit_btn.pressed.connect(func(): _open_slots(true))
+	add_child(quit_btn)
+	slot_panel = PanelContainer.new()
+	slot_panel.add_theme_stylebox_override("panel", UiTheme.panel_box())
+	slot_panel.position = Vector2(560, 260)
+	slot_panel.size = Vector2(800, 470)
+	slot_panel.visible = false
+	add_child(slot_panel)
+	var sv := VBoxContainer.new()
+	sv.add_theme_constant_override("separation", 12)
+	slot_panel.add_child(sv)
+	var st := Label.new()
+	st.text = "存到哪一格？"
+	st.add_theme_color_override("font_color", INK)
+	st.add_theme_font_size_override("font_size", 32)
+	sv.add_child(st)
+	var sh := Label.new()
+	sh.text = "（自动存档由系统写入，不能覆盖）"
+	sh.add_theme_color_override("font_color", DIM)
+	sh.add_theme_font_size_override("font_size", 19)
+	sv.add_child(sh)
+	slot_rows = VBoxContainer.new()
+	slot_rows.add_theme_constant_override("separation", 10)
+	sv.add_child(slot_rows)
+	var sc := Button.new()
+	sc.text = "取 消"
+	sc.custom_minimum_size = Vector2(0, 52)
+	sc.add_theme_font_size_override("font_size", 24)
+	sc.pressed.connect(func(): slot_panel.visible = false)
+	sv.add_child(sc)
 	# 全屏祭坛卡册
 	album = Control.new()
 	album.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -390,12 +443,64 @@ func _show_toast(t: String) -> void:
 func _toggle_notebook() -> void:
 	note_panel.visible = not note_panel.visible
 	album.visible = false
+	slot_panel.visible = false
 	if note_panel.visible:
 		_refresh_notebook()
+
+var _quit_after_save := false
+
+func _toggle_slots() -> void:
+	_open_slots(false)
+
+func _open_slots(then_quit: bool) -> void:
+	_quit_after_save = then_quit
+	slot_panel.visible = not slot_panel.visible or then_quit
+	note_panel.visible = false
+	album.visible = false
+	if slot_panel.visible:
+		_refresh_slots()
+
+func _refresh_slots() -> void:
+	for c in slot_rows.get_children():
+		c.queue_free()
+	for slot in range(1, GameState.SLOT_COUNT):        # 手动只写 1–3，自动档不可覆盖
+		var info := GameState.slot_info(slot)
+		var row := Button.new()
+		row.custom_minimum_size = Vector2(760, 84)
+		row.pressed.connect(func():
+			GameState.save(slot)
+			slot_panel.visible = false
+			if _quit_after_save:
+				get_tree().change_scene_to_file("res://scenes/title.tscn")
+			else:
+				_show_toast("已保存到 存档 %d" % slot)
+				_refresh_slots())
+		slot_rows.add_child(row)
+		var hb := HBoxContainer.new()
+		hb.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hb.offset_left = 22
+		hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(hb)
+		var nl := Label.new()
+		nl.text = "存档 %d" % slot
+		nl.custom_minimum_size = Vector2(160, 0)
+		nl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		nl.add_theme_color_override("font_color", INK)
+		nl.add_theme_font_size_override("font_size", 26)
+		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(nl)
+		var dl := Label.new()
+		dl.text = "空　—　可写入" if info.is_empty() else "%s　　碎片 %d 张　　%s　（覆盖）" % [info["chapter"], info["cards"], info["stamp"]]
+		dl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		dl.add_theme_color_override("font_color", DIM if info.is_empty() else INK)
+		dl.add_theme_font_size_override("font_size", 22)
+		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hb.add_child(dl)
 
 func _toggle_cards() -> void:
 	album.visible = not album.visible
 	note_panel.visible = false
+	slot_panel.visible = false
 	if album.visible:
 		_refresh_cards()
 	elif card_detail != null:
@@ -502,6 +607,13 @@ func _refresh_notebook() -> void:
 			GameState.save()
 			_refresh_notebook())
 		note_list.add_child(b)
+	# 面板高度随人数长——不足 10 人就不留空白，满 10 人后固定并滚动
+	var rows: int = clampi(GameState.notebook.size(), 1, NOTE_VISIBLE)
+	var sep: int = note_list.get_theme_constant("separation")
+	note_scroll.custom_minimum_size.y = rows * NOTE_ROW_H + max(0, rows - 1) * sep
+	await get_tree().process_frame                 # 等子节点算完最小尺寸
+	if is_instance_valid(note_panel):
+		note_panel.reset_size()
 
 func _gui_input(event: InputEvent) -> void:
 	if puzzle_active:
@@ -512,7 +624,7 @@ func _gui_input(event: InputEvent) -> void:
 		elif event is InputEventMouseMotion and drag_card != null:
 			drag_card.global_position = get_global_mouse_position() - drag_offset
 		return
-	if album.visible or note_panel.visible:        # 卡册/笔记打开时不推进剧情
+	if album.visible or note_panel.visible or slot_panel.visible:   # 面板打开时不推进剧情
 		return
 	if listen_root != null:                        # 倾听中：点击只推进捕捉到的台词
 		if event is InputEventMouseButton and event.pressed \
@@ -901,7 +1013,7 @@ func _drop_card(card: TextureRect) -> void:
 	_update_candles()
 
 func _set_candle(i: int, on: bool, _lit, _unlit) -> void:
-	## 蜡烛渐亮/渐灭：从熄灭态平滑地亮起来（1.4s），拿走卡片则渐灭
+	## 蜡烛渐亮/渐灭：从熄灭态平滑地亮起来（1.0s），拿走卡片则渐灭
 	if i >= candles_lit.size():
 		return
 	var lt: TextureRect = candles_lit[i]
@@ -915,7 +1027,7 @@ func _set_candle(i: int, on: bool, _lit, _unlit) -> void:
 	var tw := create_tween()
 	lt.set_meta("tw", tw)
 	if on:
-		tw.tween_property(lt, "modulate:a", 1.0, 1.4).set_trans(Tween.TRANS_SINE)   # 从熄灭一路匀亮上来
+		tw.tween_property(lt, "modulate:a", 1.0, 1.0).set_trans(Tween.TRANS_SINE)   # 从熄灭一路匀亮上来
 	else:
 		tw.tween_property(lt, "modulate:a", 0.0, 0.6).set_trans(Tween.TRANS_SINE)
 

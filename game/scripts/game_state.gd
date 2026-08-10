@@ -1,7 +1,18 @@
 extends Node
 ## 全局状态（autoload GameState）：低语值、进度、卡牌、生死笔记、存档
 
-const SAVE_PATH := "user://save.json"
+## 存档位：0 = 自动存档（系统写），1–3 = 手动存档（玩家写）
+const SLOT_AUTO := 0
+const SLOT_COUNT := 4
+const CHAPTER_OF := {
+	"F01": "序章 · 下山", "F04": "第一章 · 空村投宿", "F14": "第二章 · 回声",
+	"F28": "第三章 · 塌了一半的屋顶", "F33": "第四章 · 坟中", "F18": "第五章 · 半月庄",
+	"F36": "第六章 · 苏萨娜", "F55": "第七章 · 钟声", "F58": "第八章 · 崩塌",
+}
+const CHAPTER_ORDER := ["F01", "F04", "F14", "F28", "F33", "F18", "F36", "F55", "F58"]
+
+static func slot_path(slot: int) -> String:
+	return "user://save_%d.json" % slot
 
 var whisper := 0.0                    # 0..1，只升不降
 var current_fragment := "F01"
@@ -23,24 +34,59 @@ func meet(person: String) -> void:
 func cycle_mark(person: String) -> void:
 	notebook[person] = (int(notebook.get(person, 0)) + 1) % 3
 
-func save() -> void:
+func _chapter_name() -> String:
+	## 当前碎片属于哪一章：沿章节起点表回溯，取最近一个已到达的章首
+	var best := "序章 · 下山"
+	for fid in CHAPTER_ORDER:
+		if seen_fragments.has(fid):
+			best = CHAPTER_OF[fid]
+	if CHAPTER_OF.has(current_fragment):
+		best = CHAPTER_OF[current_fragment]
+	return best
+
+func save(slot: int = SLOT_AUTO) -> void:
+	var t := Time.get_datetime_dict_from_system()
 	var data := {
 		"whisper": whisper,
 		"current_fragment": current_fragment,
 		"unlocked_cards": unlocked_cards,
 		"notebook": notebook,
 		"seen_fragments": seen_fragments,
+		"chapter": _chapter_name(),
+		"cards_count": unlocked_cards.size(),
+		"stamp": "%04d-%02d-%02d %02d:%02d" % [t.year, t.month, t.day, t.hour, t.minute],
 	}
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	f.store_string(JSON.stringify(data))
+	var f := FileAccess.open(slot_path(slot), FileAccess.WRITE)
+	if f != null:
+		f.store_string(JSON.stringify(data))
 
-func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+func has_save(slot: int = SLOT_AUTO) -> bool:
+	return FileAccess.file_exists(slot_path(slot))
 
-func load_save() -> bool:
-	if not has_save():
+func any_save() -> bool:
+	for i in range(SLOT_COUNT):
+		if has_save(i):
+			return true
+	return false
+
+func slot_info(slot: int) -> Dictionary:
+	## 给存档界面用：没有存档返回空字典
+	if not has_save(slot):
+		return {}
+	var data = JSON.parse_string(FileAccess.get_file_as_string(slot_path(slot)))
+	if data == null:
+		return {}
+	return {
+		"chapter": String(data.get("chapter", "？")),
+		"fragment": String(data.get("current_fragment", "F01")),
+		"cards": int(data.get("cards_count", (data.get("unlocked_cards", []) as Array).size())),
+		"stamp": String(data.get("stamp", "")),
+	}
+
+func load_save(slot: int = SLOT_AUTO) -> bool:
+	if not has_save(slot):
 		return false
-	var data = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	var data = JSON.parse_string(FileAccess.get_file_as_string(slot_path(slot)))
 	if data == null:
 		return false
 	whisper = float(data.get("whisper", 0.0))
